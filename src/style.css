@@ -1,0 +1,125 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #140d04; }
+body { font-family: system-ui, "Malgun Gothic", sans-serif; color: #ffe9b0; user-select: none; }
+canvas { display: block; }
+
+#hud, #hud-r { position: fixed; top: 16px; z-index: 2; pointer-events: none; }
+#hud { left: 16px; display: flex; flex-direction: column; gap: 6px; }
+#hud-r { right: 16px; text-align: right; }
+.stat { font-size: 26px; font-weight: 800; text-shadow: 0 2px 0 #000; display: flex; align-items: center; gap: 8px; }
+.stat .ic { font-size: 22px; }
+#honey { color: #ffc21a; display: inline-block; }
+#honey.bump { animation: bump 0.12s ease-out; }
+@keyframes bump { 0% { transform: scale(1.35); } 100% { transform: scale(1); } }
+
+#wave { font-size: 20px; font-weight: 800; letter-spacing: 2px; text-shadow: 0 2px 0 #000; }
+.hp { width: 180px; height: 10px; background: #3a2408; border-radius: 5px; margin-top: 8px; overflow: hidden; margin-left: auto; }
+#hpfill { height: 100%; width: 100%; background: linear-gradient(90deg, #ff7a1a, #ffc21a); transition: width 0.15s; }
+
+#chain {
+  position: fixed; top: 22%; left: 50%; transform: translateX(-50%);
+  font-weight: 900; color: #fff4c8; z-index: 2; pointer-events: none;
+  text-shadow: 0 0 18px #ff8a00, 0 3px 0 #7a3a00; white-space: nowrap; opacity: 0;
+}
+#chain.go { animation: chainpop 1.1s ease-out forwards; }
+@keyframes chainpop {
+  0% { opacity: 1; transform: translateX(-50%) scale(1.8); }
+  12% { opacity: 1; transform: translateX(-50%) scale(1); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-20px) scale(1); }
+}
+
+#banner {
+  position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
+  font-size: 54px; font-weight: 900; letter-spacing: 6px; z-index: 2; pointer-events: none;
+  color: #ffc21a; text-shadow: 0 4px 0 #000; opacity: 0;
+}
+#banner.go { animation: banner 1.8s ease-out forwards; }
+@keyframes banner { 0% { opacity: 0; letter-spacing: 30px; } 20% { opacity: 1; letter-spacing: 6px; } 75% { opacity: 1; } 100% { opacity: 0; } }
+
+#hint { position: fixed; bottom: 18px; left: 0; right: 0; text-align: center; font-size: 14px; opacity: 0.6; pointer-events: none; z-index: 2; }
+
+#over { position: fixed; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; background: rgba(10, 5, 0, 0.75); }
+#over[hidden] { display: none; }
+#over .box { text-align: center; }
+#over h1 { font-size: 48px; color: #ff7a1a; margin-bottom: 14px; }
+#over p { font-size: 18px; line-height: 1.8; margin-bottom: 22px; }
+#over button {
+  font: inherit; font-size: 22px; font-weight: 800; padding: 10px 36px; border: 0; border-radius: 8px;
+  background: #ffc21a; color: #2a1600; cursor: pointer;
+}
+
+#hud, #hud-r { z-index: 6; }
+.stat .sub { font-size: 15px; opacity: 0.6; font-weight: 600; }
+#bees.hurt { animation: hurt 0.25s ease-out; }
+@keyframes hurt { 0% { color: #ff4a2a; transform: translateX(-3px); } 50% { transform: translateX(3px); } 100% { color: inherit; transform: none; } }
+
+#shop { position: fixed; inset: 0; z-index: 4; display: flex; align-items: center; justify-content: center; background: rgba(12, 6, 0, 0.72); padding: 16px; }
+#shop[hidden] { display: none; }
+.shop-box { width: 100%; max-width: 760px; }
+.shop-head { text-align: center; margin-bottom: 18px; }
+.shop-head h2 { font-size: 30px; color: #ffc21a; letter-spacing: 1px; }
+#shop-sub { font-size: 15px; opacity: 0.75; margin-top: 6px; line-height: 1.6; }
+#cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
+.card {
+  position: relative; background: #2a1906; border: 2px solid #6b4310; border-radius: 12px;
+  padding: 16px 14px 14px; text-align: center; cursor: pointer; transition: transform 0.1s, border-color 0.1s;
+  display: flex; flex-direction: column; gap: 8px; min-height: 210px;
+}
+.card:hover { transform: translateY(-4px); border-color: #ffc21a; }
+.card.r1 { border-color: #3d7bd9; background: #14223a; }
+.card.r2 { border-color: #c45cff; background: #2a1438; box-shadow: 0 0 24px rgba(196, 92, 255, 0.35); }
+.card .rar { font-size: 11px; letter-spacing: 2px; opacity: 0.7; }
+.card .icon { font-size: 40px; line-height: 1.1; }
+.card .name { font-size: 18px; font-weight: 800; }
+.card .desc { font-size: 14px; opacity: 0.85; line-height: 1.45; flex: 1; }
+.card .lvl { font-size: 12px; opacity: 0.6; }
+.card .price { font-size: 18px; font-weight: 800; color: #ffc21a; }
+.card.poor { cursor: not-allowed; }
+.card.poor .price { color: #ff6a4a; }
+.card.poor:hover { transform: none; }
+.card.sold { opacity: 0.25; pointer-events: none; }
+.card.sold .price::after { content: ' · 구매함'; color: #ffe9b0; }
+.card.bought { animation: bought 0.35s ease-out; }
+@keyframes bought { 0% { transform: scale(1.08); box-shadow: 0 0 40px #ffc21a; } 100% { transform: scale(1); } }
+.shop-row { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+.shop-row button {
+  font: inherit; font-size: 17px; font-weight: 800; padding: 10px 22px; border-radius: 8px; border: 0; cursor: pointer;
+  background: #ffc21a; color: #2a1600;
+}
+.shop-row button.ghost { background: transparent; color: #ffe9b0; border: 2px solid #6b4310; }
+.shop-row button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* 장착 슬롯 */
+.slots { display: flex; gap: 8px; justify-content: center; }
+#slots { margin-top: 10px; }
+#slots-hud { position: fixed; left: 16px; bottom: 16px; z-index: 6; gap: 6px; pointer-events: none; }
+#slots-hud .slot { width: 40px; height: 40px; }
+#slots-hud .slot .icon { font-size: 20px; }
+#slots-hud .slot.empty { opacity: 0.35; }
+.slot {
+  position: relative; width: 58px; height: 58px; border-radius: 10px; border: 2px solid #6b4310; background: #2a1906;
+  display: flex; align-items: center; justify-content: center;
+}
+.slot.r1 { border-color: #3d7bd9; background: #14223a; }
+.slot.r2 { border-color: #c45cff; background: #2a1438; }
+.slot.empty { border-style: dashed; background: transparent; }
+.slot .icon { font-size: 28px; }
+.slot .lv {
+  position: absolute; right: -6px; bottom: -6px; min-width: 20px; height: 20px; padding: 0 4px; border-radius: 10px;
+  background: #ffc21a; color: #2a1600; font-size: 12px; font-weight: 900; display: flex; align-items: center; justify-content: center;
+}
+.slot.pick { cursor: pointer; animation: pick 0.6s ease-in-out infinite alternate; }
+.slot.pick:hover { border-color: #ff4a2a; background: #4a1508; }
+@keyframes pick { from { transform: translateY(0); } to { transform: translateY(-4px); } }
+#shop-msg { text-align: center; font-size: 14px; opacity: 0.75; margin-top: 18px; }
+#shop-msg.warn { color: #ff8a5a; opacity: 1; font-weight: 700; }
+.card .lvl.warn { color: #ff8a5a; opacity: 1; }
+.card.chosen { border-color: #ff8a5a !important; transform: translateY(-6px); box-shadow: 0 0 22px rgba(255, 138, 90, 0.5); }
+
+/* 계열 */
+#traits { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 12px; min-height: 10px; }
+.trait { font-size: 13px; font-weight: 800; padding: 6px 10px; border-radius: 8px; background: #2a1906; border: 1px solid #6b4310; opacity: 0.8; }
+.trait span { display: block; font-size: 11px; font-weight: 500; opacity: 0.75; margin-top: 2px; }
+.trait.on { background: #4a3000; border-color: #ffc21a; color: #ffe27a; opacity: 1; box-shadow: 0 0 14px rgba(255, 194, 26, 0.35); }
+.slot.lit { box-shadow: 0 0 12px rgba(255, 194, 26, 0.7); }

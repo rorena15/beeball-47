@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Beecurity: 열구</title>
+  </head>
+  <body>
+    <div id="hud">
+      <div class="stat"><span class="ic">🍯</span><span id="honey">0</span></div>
+      <div class="stat"><span class="ic">🐝</span><span id="bees">0</span></div>
+    </div>
+    <div id="hud-r">
+      <div id="wave">WAVE 1</div>
+      <div class="hp"><div id="hpfill"></div></div>
+    </div>
+    <div id="chain"></div>
+    <div id="banner"></div>
+    <div id="slots-hud" class="slots"></div>
+    <div id="hint">말벌을 눌러 벌떼를 던져라 · 47°C에서 익는다</div>
+    <div id="shop" hidden>
+      <div class="shop-box">
+        <div class="shop-head">
+          <h2 id="shop-title">WAVE 1 방어 성공</h2>
+          <div id="shop-sub"></div>
+        </div>
+        <div id="cards"></div>
+        <div id="shop-msg"></div>
+        <div id="slots" class="slots"></div>
+        <div id="traits"></div>
+        <div class="shop-row">
+          <button id="reroll" class="ghost"></button>
+          <button id="repair" class="ghost"></button>
+          <button id="next">다음 웨이브 ▶</button>
+        </div>
+      </div>
+    </div>
+    <div id="over" hidden>
+      <div class="box">
+        <h1>벌집 함락</h1>
+        <p id="over-stats"></p>
+        <button id="restart">다시</button>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
