@@ -11,8 +11,27 @@ const HIVE_R = 58;
 
 const IDLE = 0, FLY = 1, BALL = 2;
 
+// ── 말벌 종류 ── from: 처음 나오는 웨이브. cool: 식는 속도 배수(클수록 잘 안 익음), sting: 독침 배수, dmg: 벌집 초당 피해
+type Kind = 'normal' | 'dart' | 'giant' | 'hunter' | 'queen';
+interface KindDef {
+  name: string; desc: string; from: number; size: number; speed: number;
+  cool: number; sting: number; honey: number; dmg: number; tint: number;
+}
+const KINDS: Record<Kind, KindDef> = {
+  normal: { name: '말벌', desc: '벌집으로 곧장 날아온다', from: 1, size: 13, speed: 1, cool: 1, sting: 1, honey: 5, dmg: 4, tint: 0xffffff },
+  dart: { name: '돌격말벌', desc: '작고 두 배 빠르다. 먼저 끊어라', from: 2, size: 9, speed: 2.1, cool: 1, sting: 0.7, honey: 4, dmg: 5, tint: 0xff5a48 },
+  giant: { name: '장수말벌', desc: '느리지만 잘 안 익고 독침이 세다. 꿀이 많다', from: 3, size: 20, speed: 0.55, cool: 1.9, sting: 1.6, honey: 22, dmg: 8, tint: 0xa85a18 },
+  hunter: { name: '사냥말벌', desc: '벌집 대신 쉬고 있는 벌을 낚아챈다', from: 4, size: 12, speed: 1.3, cool: 1.1, sting: 1, honey: 14, dmg: 0, tint: 0xa878ff },
+  queen: { name: '여왕말벌', desc: '5웨이브마다. 거대하고 아주 오래 버틴다', from: 5, size: 26, speed: 1, cool: 1, sting: 1, honey: 60, dmg: 9, tint: 0xffffff },
+};
+const KIND_ORDER: Kind[] = ['normal', 'dart', 'giant', 'hunter', 'queen'];
+
+// ── 웨이브 등장 패턴 ──
+type Pattern = 'scatter' | 'rush' | 'surround' | 'swarm';
+const PATTERN_NAME: Record<Pattern, string> = { scatter: '', rush: '돌격', surround: '포위', swarm: '편대' };
+
 interface Hornet {
-  s: Sprite; glow: Sprite; label: Text;
+  s: Sprite; glow: Sprite; label: Text; kind: Kind; k: KindDef; orbA: number;
   x: number; y: number; temp: number; attached: number;
   size: number; boss: boolean; alive: boolean; t: number; speed: number;
   atHive: boolean; killT: number; stingT: number;
@@ -125,6 +144,9 @@ let wave = 0, waveState: 'break' | 'spawn' | 'shop' = 'break', waveTimer = 1.2, 
 let chain = 0, maxChain = 0, kills = 0, lostBees = 0, waveLost = 0, waveHoney = 0;
 let freeze = 0, trauma = 0, time = 0, beeSpawnT = 0, scoutT = 0, shopDelay = 0;
 let over = false;
+let inMenu = true; // 메뉴가 떠 있는 동안은 웨이브가 시작되지 않는다 (벌떼는 뒤에서 계속 돈다)
+let pattern: Pattern = 'scatter', rushAng = 0;
+let mustSpawn: Kind[] = []; // 이번 웨이브에 처음 나오는 종류는 반드시 한 번 등장
 let honeyTarget = { x: 40, y: 30 };
 
 function rand(a: number, b: number) { return a + Math.random() * (b - a); }
@@ -201,8 +223,10 @@ function toIdle(b: Bee) {
   b.w = (Math.random() < 0.5 ? -1 : 1) * rand(0.3, 1.1);
 }
 
-function addHornet(x: number, y: number, boss: boolean) {
-  const size = boss ? 26 : 13;
+function addHornet(x: number, y: number, kind: Kind) {
+  const k = KINDS[kind];
+  const boss = kind === 'queen';
+  const size = k.size;
   const s = new Sprite(hornetTex);
   s.anchor.set(0.5);
   s.scale.set(size / 13);
@@ -219,21 +243,58 @@ function addHornet(x: number, y: number, boss: boolean) {
   hornetLayer.addChild(s);
   glowLayer.addChild(glow);
   labelLayer.addChild(label);
+  s.tint = k.tint;
   hornets.push({
-    s, glow, label, x, y, temp: BASE_TEMP, attached: 0, size, boss, alive: true,
-    t: Math.random() * 10, speed: boss ? 38 : Math.min(140, 68 + wave * 2.5), atHive: false, killT: 0, stingT: 0.4,
+    s, glow, label, kind, k, orbA: Math.atan2(y - cy, x - cx),
+    x, y, temp: BASE_TEMP, attached: 0, size, boss, alive: true,
+    t: Math.random() * 10, speed: boss ? 38 : Math.min(140, 68 + wave * 2.5) * k.speed, atHive: false, killT: 0, stingT: 0.4,
     power: 0, marked: false, markAcc: 0, guardAcc: 0, waveT: 0, waveChain: 0,
   });
 }
 
+// 이번 웨이브에 나올 수 있는 종류 중 하나 (뒤로 갈수록 특수 말벌 비중이 커진다)
+function pickKind(): Kind {
+  if (mustSpawn.length) return mustSpawn.shift()!;
+  const g = Math.min(1, wave / 25);
+  const w: [Kind, number][] = [
+    ['normal', 1],
+    ['dart', wave >= KINDS.dart.from ? 0.3 + 0.3 * g : 0],
+    ['giant', wave >= KINDS.giant.from ? 0.1 + 0.15 * g : 0],
+    // 사냥말벌은 동시에 너무 많으면 벌이 녹아내리므로 수를 제한
+    ['hunter', wave >= KINDS.hunter.from && hornets.filter(h => h.alive && h.kind === 'hunter').length < 1 + wave / 8 ? 0.08 + 0.1 * g : 0],
+  ];
+  let r = Math.random() * w.reduce((s, [, x]) => s + x, 0);
+  for (const [kind, x] of w) { r -= x; if (r <= 0) return kind; }
+  return 'normal';
+}
+
 function spawnGroup() {
-  const n = Math.min(toSpawn, 1 + Math.floor(Math.random() * Math.min(5, 1 + wave / 2)));
-  const ang = Math.random() * Math.PI * 2;
   const R = Math.max(app.screen.width, app.screen.height) * 0.62 + 40;
-  for (let i = 0; i < n; i++) {
-    const a = ang + rand(-0.12, 0.12);
-    const rr = R + rand(0, 70);
-    addHornet(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, false);
+  const at = (a: number, spread: number, kind: Kind) => {
+    const rr = R + rand(0, spread);
+    addHornet(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, kind);
+  };
+  let n: number;
+  if (pattern === 'surround') {
+    // 포위: 사방에서 같은 거리로 동시에
+    n = Math.min(toSpawn, 6 + Math.floor(wave / 3));
+    const a0 = Math.random() * Math.PI * 2;
+    for (let i = 0; i < n; i++) at(a0 + (i / n) * Math.PI * 2, 20, pickKind());
+  } else if (pattern === 'swarm') {
+    // 편대: 한 덩어리로 촘촘하게. 가운데를 익히면 연쇄로 터진다
+    n = Math.min(toSpawn, 8 + Math.floor(wave / 2));
+    const ang = Math.random() * Math.PI * 2, kind = Math.random() < 0.3 && wave >= KINDS.dart.from ? 'dart' : 'normal';
+    for (let i = 0; i < n; i++) {
+      const a = ang + rand(-0.05, 0.05);
+      const off = rand(0, 60), oa = Math.random() * Math.PI * 2;
+      addHornet(cx + Math.cos(a) * (R + 40) + Math.cos(oa) * off, cy + Math.sin(a) * (R + 40) + Math.sin(oa) * off, mustSpawn.length ? pickKind() : kind);
+    }
+  } else {
+    // 흩어짐 / 돌격(한쪽 방향으로만)
+    n = Math.min(toSpawn, 1 + Math.floor(Math.random() * Math.min(5, 1 + wave / 2)));
+    const ang = pattern === 'rush' ? rushAng + rand(-0.45, 0.45) : Math.random() * Math.PI * 2;
+    const kind = pickKind();
+    for (let i = 0; i < n; i++) at(ang + rand(-0.12, 0.12), 70, i === 0 ? kind : (kind === 'hunter' ? 'normal' : kind));
   }
   toSpawn -= n;
 }
@@ -302,7 +363,7 @@ function dispatchTo(h: Hornet, count = S.sendCount(), auto = false) {
 
 app.canvas.addEventListener('pointerdown', (e) => {
   sfx.init();
-  if (over) return;
+  if (over || inMenu) return;
   const x = e.clientX - world.x, y = e.clientY - world.y;
   let best: Hornet | null = null, bd = Infinity;
   for (const h of hornets) {
@@ -334,13 +395,13 @@ function cook(h: Hornet) {
   kills++;
 
   // 연쇄 꿀 배율은 최대 ×3 (연쇄 숫자 자체는 계속 커짐)
-  const gain = Math.round((h.boss ? 60 : 5) * Math.min(3, 1 + 0.25 * (chain - 1)) * S.honeyMult());
+  const gain = Math.round(h.k.honey * Math.min(3, 1 + 0.25 * (chain - 1)) * S.honeyMult());
   waveHoney += gain;
   const R = S.chainRadius(chain) * (h.boss ? 1.5 : 1);
   freeze = h.boss ? 0.16 : 0.045 + Math.min(0.09, chain * 0.01);
   trauma = Math.min(1, trauma + (h.boss ? 0.9 : 0.3 + chain * 0.035));
 
-  const k = h.boss ? 2 : 1;
+  const k = h.boss ? 2 : h.kind === 'giant' ? 1.4 : 1;
   flash(h.x, h.y, 90 * k + chain * 6, 0.22, 0xfff0c0);
   burst(h.x, h.y, Math.min(80, 26 + chain * 4) * k, 120, 520 * k, [0xffd060, 0xffffff, 0xff8020, 0xffb030], 0.06, 0.16, 0.65);
   ring(h.x, h.y, h.size, R, 0.4, lv.frenzy && chain >= 3 ? 0xff4a20 : 0xff9a30);
@@ -433,14 +494,29 @@ function startWave() {
   waveState = 'spawn';
   toSpawn = 6 + Math.floor(wave * 2 + wave * wave * 0.1);
   spawnT = 0.5;
+
+  // 패턴: 초반 두 웨이브와 여왕 웨이브는 흩어짐. 그 뒤로는 웨이브마다 하나를 고른다
+  const boss = wave % 5 === 0;
+  const opts: Pattern[] = ['scatter', 'rush'];
+  if (wave >= 3) opts.push('swarm');
+  if (wave >= 4) opts.push('surround');
+  pattern = wave <= 2 || boss ? 'scatter' : opts[(Math.random() * opts.length) | 0];
+  rushAng = Math.random() * Math.PI * 2;
+
+  // 이번 웨이브에 처음 나오는 종류는 반드시 등장시키고 배너로 알린다
+  const fresh = KIND_ORDER.filter(k => k !== 'normal' && k !== 'queen' && KINDS[k].from === wave);
+  mustSpawn = [...fresh];
+
   waveEl.textContent = `WAVE ${wave}`;
-  bannerEl.textContent = wave % 5 === 0 ? `WAVE ${wave} · 여왕말벌` : `WAVE ${wave}`;
+  const sub = boss ? '여왕말벌' : PATTERN_NAME[pattern];
+  const intro = fresh.map(k => `새 적 · ${KINDS[k].name}: ${KINDS[k].desc}`).join('<br>');
+  bannerEl.innerHTML = `WAVE ${wave}${sub ? ` · ${sub}` : ''}` + (intro ? `<small>${intro}</small>` : '');
   bannerEl.classList.remove('go');
   void bannerEl.offsetWidth;
   bannerEl.classList.add('go');
-  if (wave % 5 === 0) {
+  if (boss) {
     const a = Math.random() * Math.PI * 2, R = Math.max(app.screen.width, app.screen.height) * 0.62 + 60;
-    addHornet(cx + Math.cos(a) * R, cy + Math.sin(a) * R, true);
+    addHornet(cx + Math.cos(a) * R, cy + Math.sin(a) * R, 'queen');
   }
 }
 
@@ -450,7 +526,7 @@ function update(dt: number) {
 
   // 웨이브
   if (waveState === 'break') {
-    waveTimer -= dt;
+    if (!inMenu) waveTimer -= dt;
     if (waveTimer <= 0) startWave();
   } else if (waveState === 'spawn') {
     spawnT -= dt;
@@ -470,9 +546,9 @@ function update(dt: number) {
     if (shopDelay <= 0) openShop();
   }
 
-  // 번식: 꿀과 무관하게 최대치까지 일정 속도로 채워짐 (상점에서는 빠르게)
+  // 번식: 웨이브 중에는 느리게 (벌을 아껴 써야 한다), 상점·메뉴에서는 빠르게 다시 채운다
   const cap = S.maxBees();
-  beeSpawnT -= dt * (waveState === 'shop' ? 4 : 1);
+  beeSpawnT -= dt * (waveState === 'shop' || inMenu ? 12 : 1);
   while (bees.length < cap && beeSpawnT <= 0) {
     addBee(cx + rand(-10, 10), cy + rand(-10, 10));
     beeSpawnT += 1 / S.broodRate();
@@ -548,7 +624,7 @@ function update(dt: number) {
     if (h.waveT > 0) h.waveT -= dt;
     balled += h.attached;
     const rate = (h.boss ? S.bossHeatPerBee() : S.heatPerBee()) * heatMult;
-    h.temp += (h.power * rate - S.cooling() * (h.temp - BASE_TEMP)) * dt;
+    h.temp += (h.power * rate - S.cooling() * h.k.cool * (h.temp - BASE_TEMP)) * dt;
     if (h.atHive) h.temp += S.spikyHeat() * dt;
 
     // 페로몬 표식, 문지기: 벌이 알아서 계속 흘러간다
@@ -568,7 +644,7 @@ function update(dt: number) {
         h.stingT = h.boss ? 0.3 : 0.42;
         // 공 크기에 비례해서 죽인다 (120마리 공이면 약 4마리). 근위대면 베테랑은 면역
         const ball = bees.filter(b => b.target === h && b.state === BALL && !(lv.royal && b.vet > 0));
-        const tries = Math.floor(S.stingKills(h.attached) + Math.random());
+        const tries = Math.floor(S.stingKills(h.attached) * h.k.sting + Math.random());
         for (let i = 0, k = 0; i < tries && k < ball.length; i++) {
           if (Math.random() >= S.stingKillChance()) continue;
           killBee(ball[k++], true);
@@ -582,7 +658,28 @@ function update(dt: number) {
     hottest = Math.max(hottest, frac);
 
     const dx = cx - h.x, dy = cy - h.y, d = Math.hypot(dx, dy) || 1;
-    if (!h.atHive) {
+    if (h.kind === 'hunter') {
+      // 사냥말벌: 대기 벌떼 고리를 따라 돌며 가까운 벌을 낚아챈다. 공에 감기면 느려지고 사냥을 멈춘다
+      const orbR = HIVE_R + 40 + Math.sqrt(bees.length) * 2.4;
+      h.orbA += (h.speed / orbR) * 0.55 * dt / (1 + h.attached * 0.03);
+      const tx = cx + Math.cos(h.orbA) * orbR, ty = cy + Math.sin(h.orbA) * orbR * 0.82;
+      const ex = tx - h.x, ey = ty - h.y, ed = Math.hypot(ex, ey) || 1;
+      const sp = Math.min(ed * 4, h.speed / (1 + h.attached * 0.011));
+      h.x += ex / ed * sp * dt;
+      h.y += ey / ed * sp * dt;
+      h.s.rotation = Math.atan2(ey, ex);
+      h.killT -= dt;
+      if (h.killT <= 0 && ed < 60 && h.attached < 20) {
+        h.killT = 0.35;
+        let got = 0;
+        for (const b of bees) {
+          if (got >= 2) break;
+          if (b.state !== IDLE || Math.hypot(b.x - h.x, b.y - h.y) > 34) continue;
+          killBee(b);
+          got++;
+        }
+      }
+    } else if (!h.atHive) {
       if (d < HIVE_R + h.size * 0.6) h.atHive = true;
       const sp = h.speed / (1 + h.attached * 0.011);
       const weave = Math.sin(h.t * 3) * 34 / (1 + h.attached * 0.025);
@@ -592,7 +689,7 @@ function update(dt: number) {
     } else {
       // 벌집 공격
       const press = h.attached < 48 ? 1 : 0.25;
-      hiveHP -= (h.boss ? 9 : 4) * press * S.hiveDamageMult() * dt;
+      hiveHP -= h.k.dmg * press * S.hiveDamageMult() * dt;
       h.killT -= dt;
       if (h.killT <= 0 && press === 1) {
         h.killT = 0.45;
@@ -608,9 +705,15 @@ function update(dt: number) {
 
     const jit = frac * frac * 2.5;
     h.s.position.set(h.x + rand(-jit, jit), h.y + rand(-jit, jit));
-    h.s.tint = lerpColor(0xffffff, 0xff5030, frac * 0.8);
-    h.glow.visible = frac > 0.12;
-    if (h.glow.visible) {
+    h.s.tint = lerpColor(h.k.tint, 0xff5030, frac * 0.8);
+    h.glow.visible = frac > 0.12 || h.kind === 'hunter';
+    if (h.glow.visible && frac <= 0.12) {
+      // 사냥말벌은 식어 있어도 보라빛 기운을 둘러 한눈에 구분되게
+      h.glow.position.set(h.x, h.y);
+      h.glow.scale.set(0.75 + Math.sin(h.t * 6) * 0.08);
+      h.glow.alpha = 0.55;
+      h.glow.tint = 0x8a50ff;
+    } else if (h.glow.visible) {
       h.glow.position.set(h.x, h.y);
       h.glow.scale.set((h.size / 13) * (0.5 + frac * 1.5));
       h.glow.alpha = 0.25 + frac * 0.75;
@@ -697,11 +800,26 @@ function fmt(n: number) {
   return (n / 1e6).toFixed(2) + 'M';
 }
 
+// ── 최고 기록 (브라우저에만 저장, 못 쓰면 그냥 넘어간다) ──
+const BEST_KEY = 'beeball47.best';
+function loadBest(): { wave: number; kills: number; chain: number } {
+  try { return { wave: 0, kills: 0, chain: 0, ...JSON.parse(localStorage.getItem(BEST_KEY) ?? '{}') }; }
+  catch { return { wave: 0, kills: 0, chain: 0 }; }
+}
+function saveBest() {
+  const b = loadBest();
+  const nb = { wave: Math.max(b.wave, wave), kills: Math.max(b.kills, kills), chain: Math.max(b.chain, maxChain) };
+  try { localStorage.setItem(BEST_KEY, JSON.stringify(nb)); } catch { /* 저장 불가 */ }
+  return { prev: b, now: nb };
+}
+
 function gameOver() {
   over = true;
   sfx.setBuzz(0, 0);
+  const { prev } = saveBest();
+  const record = wave > prev.wave ? '<br><b style="color:#ffc21a">최고 기록!</b>' : '';
   $('over-stats').innerHTML =
-    `WAVE ${wave} 도달<br>익힌 말벌 ${kills}마리 · 최대 연쇄 ${maxChain}<br>모은 꿀 ${fmt(totalHoney)} · 잃은 벌 ${fmt(lostBees)}마리`;
+    `WAVE ${wave} 도달${record}<br>익힌 말벌 ${kills}마리 · 최대 연쇄 ${maxChain}<br>모은 꿀 ${fmt(totalHoney)} · 잃은 벌 ${fmt(lostBees)}마리`;
   overEl.hidden = false;
   shopEl.hidden = true;
 }
@@ -877,11 +995,40 @@ function reset() {
 }
 $('restart').addEventListener('click', () => { sfx.init(); reset(); });
 
+// ── 메인 메뉴 ──
+const menuEl = $('menu');
+function showMenu() {
+  const b = loadBest();
+  $('best').textContent = b.wave ? `최고 기록 · WAVE ${b.wave} · 최대 연쇄 ${b.chain}` : '';
+  // 도감: 아직 도달 못 한 웨이브의 말벌은 흐리게
+  $('codex-list').innerHTML = KIND_ORDER.map(kind => {
+    const k = KINDS[kind], locked = k.from > 1 && b.wave < k.from;
+    return `<div class="foe${locked ? ' locked' : ''}"><b>${locked ? '???' : k.name}</b>` +
+      `${locked ? '' : k.desc + '<br>'}<i>WAVE ${k.from}부터</i></div>`;
+  }).join('');
+  inMenu = true;
+  menuEl.hidden = false;
+  hintEl.style.opacity = '0';
+}
+function startGame() {
+  sfx.init();
+  reset();
+  inMenu = false;
+  menuEl.hidden = true;
+  hintEl.style.opacity = '';
+}
+$('start').addEventListener('click', startGame);
+$('to-menu').addEventListener('click', () => { reset(); showMenu(); });
+window.addEventListener('keydown', (e) => {
+  if (inMenu && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); startGame(); }
+});
+
 // 개발 중 자동 테스트용
 if (import.meta.env.DEV) {
   (window as any).__g = {
     hornets: () => hornets.map(h => ({ x: h.x + world.x, y: h.y + world.y, temp: h.temp, attached: h.attached })),
     give: (n: number) => { honey += n; },
+    spawn: (kind: Kind, x: number, y: number) => addHornet(x - world.x, y - world.y, kind),
     slots: () => [...slots],
     shop: () => openShop(),
     eq: (id: string) => { equip(id as UpDef['id']); renderSlots(); },
@@ -889,7 +1036,7 @@ if (import.meta.env.DEV) {
     // 밸런스 봇: 렌더링 없이 게임 시간을 직접 돌린다 (tools/balance.mjs)
     sim: {
       stop: () => app.ticker.stop(),
-      reset: () => reset(),
+      reset: () => { reset(); inMenu = false; menuEl.hidden = true; },
       tick: (dt: number) => tick(dt),
       state: () => ({
         wave, waveState, honey, hiveHP, maxHP: S.maxHP(), bees: bees.length,
@@ -909,7 +1056,7 @@ if (import.meta.env.DEV) {
           const pw = incoming.get(h) ?? 0;
           return {
             ref: h, x: h.x, y: h.y, temp: h.temp, boss: h.boss, atHive: h.atHive,
-            eq: BASE_TEMP + pw * rate / S.cooling() + (h.atHive ? S.spikyHeat() / S.cooling() : 0),
+            eq: BASE_TEMP + (pw * rate + (h.atHive ? S.spikyHeat() : 0)) / (S.cooling() * h.k.cool),
             distHive: Math.hypot(h.x - cx, h.y - cy),
           };
         });
@@ -934,6 +1081,7 @@ if (import.meta.env.DEV) {
 window.addEventListener('resize', () => requestAnimationFrame(layout));
 layout();
 reset();
+showMenu();
 
 function tick(dt: number) {
   if (!over) {

@@ -123,3 +123,44 @@ canvas { display: block; }
 .trait span { display: block; font-size: 11px; font-weight: 500; opacity: 0.75; margin-top: 2px; }
 .trait.on { background: #4a3000; border-color: #ffc21a; color: #ffe27a; opacity: 1; box-shadow: 0 0 14px rgba(255, 194, 26, 0.35); }
 .slot.lit { box-shadow: 0 0 12px rgba(255, 194, 26, 0.7); }
+
+/* 메인 메뉴: 뒤에서 벌떼가 계속 돈다 */
+#menu {
+  position: fixed; inset: 0; z-index: 8; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 50% 52%, rgba(20, 13, 4, 0.25) 0, rgba(12, 7, 0, 0.82) 60%); padding: 16px;
+  overflow-y: auto;
+}
+#menu[hidden] { display: none; }
+.menu-box { text-align: center; max-width: 620px; width: 100%; }
+.logo {
+  font-size: 76px; font-weight: 900; letter-spacing: 4px; color: #ffc21a; line-height: 1;
+  text-shadow: 0 0 30px rgba(255, 140, 0, 0.55), 0 5px 0 #5a3000;
+}
+.logo span { color: #ff6a1a; margin-left: 10px; font-size: 0.8em; }
+.tag { font-size: 17px; opacity: 0.8; margin: 14px 0 26px; }
+#start {
+  font: inherit; font-size: 26px; font-weight: 900; padding: 12px 64px; border: 0; border-radius: 10px;
+  background: #ffc21a; color: #2a1600; cursor: pointer; box-shadow: 0 0 28px rgba(255, 170, 0, 0.45);
+  animation: breathe 1.6s ease-in-out infinite alternate;
+}
+#start:hover { background: #ffd54a; }
+@keyframes breathe { from { transform: scale(1); } to { transform: scale(1.05); } }
+#best { font-size: 14px; opacity: 0.65; margin-top: 14px; min-height: 1em; }
+.codex { margin-top: 26px; background: rgba(42, 25, 6, 0.75); border: 1px solid #6b4310; border-radius: 12px; padding: 14px 16px; }
+.how { font-size: 13px; line-height: 1.7; opacity: 0.85; }
+.how b { color: #ffc21a; }
+#codex-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 12px; }
+.foe { text-align: left; padding: 8px 10px; border-radius: 8px; background: #1e1204; font-size: 12px; line-height: 1.45; }
+.foe b { display: block; font-size: 14px; margin-bottom: 2px; }
+.foe i { font-style: normal; opacity: 0.6; }
+.foe.locked { opacity: 0.35; }
+
+.over-row { display: flex; gap: 10px; justify-content: center; }
+#over button.ghost { background: transparent; color: #ffe9b0; border: 2px solid #6b4310; }
+
+#banner small { display: block; font-size: 20px; letter-spacing: 2px; color: #ffe9b0; margin-top: 6px; text-align: center; }
+
+@media (max-width: 520px) {
+  .logo { font-size: 52px; }
+  #banner { font-size: 38px; }
+}

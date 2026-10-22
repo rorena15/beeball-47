@@ -40,7 +40,25 @@
       <div class="box">
         <h1>벌집 함락</h1>
         <p id="over-stats"></p>
-        <button id="restart">다시</button>
+        <div class="over-row">
+          <button id="restart">다시</button>
+          <button id="to-menu" class="ghost">메뉴</button>
+        </div>
+      </div>
+    </div>
+    <div id="menu">
+      <div class="menu-box">
+        <div class="logo">BEEBALL<span>47</span></div>
+        <p class="tag">벌떼로 말벌을 감싸 47°C에 익혀라</p>
+        <button id="start">시작</button>
+        <p id="best"></p>
+        <div class="codex">
+          <div class="how">
+            <b>말벌을 눌러</b> 벌떼를 보낸다 · 벌이 공처럼 감싸 47°C가 되면 익는다<br>
+            익을 때 퍼지는 <b>열파</b>가 옆 말벌을 데운다 · 무리 한가운데를 노려 연쇄를 이어라
+          </div>
+          <div id="codex-list"></div>
+        </div>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
