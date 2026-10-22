@@ -1,6 +1,6 @@
 import { Application, BitmapText, Container, Graphics, Sprite, Texture, type TextStyleOptions } from 'pixi.js';
 import { Sfx } from './audio';
-import { MAX_EXTRA, MAX_SLOTS, S, TAGS, extra, maxSlots, colony, byId, cost, equip, lv, resetUpgrades, rollCards, slots, tagCount, trait, unequip, type UpDef } from './upgrades';
+import { MAX_EXTRA, MAX_SLOTS, PACE, S, TAGS, extra, maxSlots, colony, byId, cost, equip, lv, resetUpgrades, rollCards, slots, tagCount, trait, unequip, type UpDef } from './upgrades';
 import { LANGS, detectLang, lang, setLang, t, type Key, type Lang } from './i18n';
 import './style.css';
 
@@ -270,6 +270,7 @@ function addBee(x: number, y: number) {
 
 function toIdle(b: Bee) {
   b.state = IDLE;
+  b.s.scale.set(1);
   b.target = null;
   b.auto = false;
   b.a = Math.random() * Math.PI * 2;
@@ -298,7 +299,7 @@ function addHornet(x: number, y: number, kind: Kind) {
   hornets.push({
     s, glow, label, labelT: 0, kind, k, orbA: Math.atan2(y - cy, x - cx),
     x, y, temp: BASE_TEMP, attached: 0, size, boss, alive: true,
-    t: Math.random() * 10, speed: boss ? 38 : Math.min(140, 68 + wave * 2.5) * k.speed, atHive: false, killT: 0, stingT: 0.4,
+    t: Math.random() * 10, speed: (boss ? 38 : Math.min(140, 68 + wave * 2.5) * k.speed) * 1.1, atHive: false, killT: 0, stingT: 0.4,
     power: 0, marked: false, markAcc: 0, guardAcc: 0, waveT: 0, waveChain: 0,
   });
 }
@@ -589,7 +590,7 @@ function update(dt: number) {
     if (toSpawn > 0 && spawnT <= 0) {
       spawnGroup();
       if (toSpawn > 0 && Math.random() < 0.35) spawnGroup(); // 다른 방향에서 동시에
-      spawnT = Math.max(0.3, 1.1 - wave * 0.08) * rand(0.6, 1.4) * (inMenu ? 0.6 : 1);
+      spawnT = Math.max(0.25, 0.9 - wave * 0.07) * rand(0.6, 1.4) * (inMenu ? 0.6 : 1);
     }
     if (toSpawn === 0 && hornets.every(h => !h.alive) && (inMenu || drops.length === 0)) {
       if (inMenu) {
@@ -637,6 +638,7 @@ function update(dt: number) {
       const dx = h.x - b.x, dy = h.y - b.y, d = Math.hypot(dx, dy) || 1;
       if (d < h.size * 0.9 + 6) {
         b.state = BALL;
+        b.s.scale.set(1);
         b.a = Math.atan2(-dy, -dx);
         b.r = h.size * 0.75 + 2 + Math.random() * (4 + Math.sqrt(h.attached + 1) * 1.1);
         b.w = (Math.random() < 0.5 ? -1 : 1) * rand(3, 7);
@@ -646,6 +648,7 @@ function update(dt: number) {
         b.vy = dy / d * sp + dx / d * wob;
         b.x += b.vx * dt; b.y += b.vy * dt;
         b.s.rotation = Math.atan2(b.vy, b.vx);
+        b.s.scale.set(1.7, 0.75); // 날아가는 벌은 길게 늘려 속도감
       }
     } else if (b.state === BALL) {
       const h = b.target!;
@@ -705,7 +708,7 @@ function update(dt: number) {
     if (h.attached > 0) {
       h.stingT -= dt;
       if (h.stingT <= 0) {
-        h.stingT = h.boss ? 0.3 : 0.42;
+        h.stingT = (h.boss ? 0.3 : 0.42) / PACE;
         // 공 크기에 비례해서 죽인다 (120마리 공이면 약 4마리). 근위대면 베테랑은 면역
         const ball = bees.filter(b => b.target === h && b.state === BALL && !(lv.royal && b.vet > 0));
         const tries = Math.floor(S.stingKills(h.attached) * h.k.sting + Math.random());
@@ -750,6 +753,7 @@ function update(dt: number) {
       h.x += (dx / d * sp - dy / d * weave) * dt;
       h.y += (dy / d * sp + dx / d * weave) * dt;
       h.s.rotation = Math.atan2(dy, dx);
+      if (h.kind === 'dart') h.s.scale.set(h.size / 13 * 1.35, h.size / 13 * 0.8); // 돌격말벌도 길게
     } else {
       // 벌집 공격
       const press = h.attached < 48 ? 1 : 0.25;
@@ -1104,7 +1108,7 @@ function doNext() {
   document.body.classList.remove('shop-open');
   pending = null;
   waveState = 'break';
-  waveTimer = 0.8;
+  waveTimer = 0.4;
 }
 rerollBtn.addEventListener('click', doReroll);
 repairBtn.addEventListener('click', doRepair);
@@ -1203,6 +1207,8 @@ function startDemo() {
 function startGame() {
   sfx.init();
   reset();
+  // 데모가 띄우던 배너·연쇄 글자가 메뉴가 걷히면서 보이지 않게 지운다
+  for (const el of [bannerEl, chainEl, secretEl]) { el.classList.remove('go'); el.innerHTML = ''; }
   inMenu = false;
   menuEl.hidden = true;
   document.body.classList.remove('in-menu');

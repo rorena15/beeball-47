@@ -157,16 +157,19 @@ export function rollCards(n: number): UpDef[] {
   return out;
 }
 
+/** 열구 템포: 발열·식는 속도·독침 주기를 같은 비율로 당긴다. 필요한 벌 수와 한 마리당 손실은 그대로, 익는 시간만 짧아짐 */
+export const PACE = 1.6;
+
 // 카드가 반영된 수치. honey가 필요한 건 인자로 받는다
 export const S = {
   heatMult: (honey: number) =>
     (1 + 0.15 * lv.heat) * (lv.elite ? 1.7 : 1) * (lv.berserk ? 1.4 : 1) *
     (1 + Math.min(0.6, Math.floor(honey / 100) * 0.04 * lv.jelly)),
-  heatPerBee: () => 0.11,
-  bossHeatPerBee: () => 0.06,
+  heatPerBee: () => 0.11 * PACE,
+  bossHeatPerBee: () => 0.06 * PACE,
   vetMult: (vet: number) => (lv.veteran ? 1 + 0.2 * vet * (1 + 0.3 * (lv.veteran - 1)) : 1),
   autoMult: () => (lv.alarm ? 1.6 : 1),
-  cooling: () => 0.4 * Math.pow(0.88, lv.insul),
+  cooling: () => 0.4 * PACE * Math.pow(0.88, lv.insul),
   sendCount: () => Math.round((60 + 20 * lv.send) * (lv.elite ? 0.5 : 1)),
   broodRate: () => 11 * (1 + 0.35 * lv.brood) * (1 + 0.08 * colony.wave),
   maxBees: () => 600 + 140 * lv.cap + 45 * colony.wave,
@@ -189,7 +192,7 @@ export const S = {
   phoenixChance: () => 0.2 * lv.phoenix,
   maxHP: () => 100 + 25 * lv.armor,
   hiveDamageMult: () => (trait('fort') ? 0.5 : 1),
-  spikyHeat: () => 4 * lv.spiky,
+  spikyHeat: () => 4 * PACE * lv.spiky,
   guardRate: () => 30 * lv.guard,
   scoutInterval: () => (lv.scout ? 3 / (1 + 0.35 * (lv.scout - 1)) * (trait('auto') ? 0.6 : 1) : 0),
   scoutCount: () => Math.round(S.sendCount() * 0.4),
