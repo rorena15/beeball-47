@@ -204,3 +204,5 @@ body.in-menu #hud, body.in-menu #hud-r, body.in-menu #slots-hud, body.in-menu #b
   margin-left: auto; font: inherit; font-size: 15px; padding: 4px 8px; border-radius: 6px;
   background: #1a0f03; color: #ffe9b0; border: 1px solid #6b4310;
 }
+/* 설정은 일시정지 창 위에서 열린다 */
+#settings { z-index: 11; }
