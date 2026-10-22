@@ -1,4 +1,5 @@
 // 효과음은 전부 WebAudio 합성. 파일 없음.
+import { Music } from './music';
 
 const PENTA = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26, 28, 31, 33, 36];
 
@@ -14,8 +15,12 @@ export class Sfx {
   /** 설정: 효과음 볼륨 0..1, 벌떼 웅웅 소리 켜기 */
   volume = 0.8;
   buzzOn = true;
-  /** 메뉴 뒤 데모 중에는 소리를 끈다 */
+  /** 메뉴 뒤 데모 중에는 효과음을 끈다 (배경음악은 따로) */
   muted = false;
+  /** 배경음악 볼륨 0..1 */
+  musicVolume = 0.6;
+  music: Music | null = null;
+  private musicTarget = 0.2;
 
   init() {
     if (this.ctx) return;
@@ -54,12 +59,24 @@ export class Sfx {
     this.buzzLfoDepth.gain.value = 0;
     lfo.connect(this.buzzLfoDepth).connect(this.buzzGain.gain);
     lfo.start();
+
+    this.music = new Music(ctx, comp, this.noise);
+    this.music.target = this.musicTarget;
+    this.music.setVolume(this.musicVolume);
+    this.music.start();
+  }
+
+  /** 배경음악 긴장도 0..1 (오디오가 켜지기 전에 와도 기억해 둔다) */
+  setIntensity(i: number) {
+    this.musicTarget = i;
+    if (this.music) this.music.target = i;
   }
 
   /** 볼륨·음소거 설정을 바로 반영 */
   apply() {
     if (!this.ctx) return;
     this.master.gain.setTargetAtTime(this.muted ? 0 : this.volume, this.ctx.currentTime, 0.03);
+    this.music?.setVolume(this.musicVolume);
   }
 
   /** level: 공에 붙은 벌 비율 0..1, heat: 가장 뜨거운 공의 진행도 0..1 */

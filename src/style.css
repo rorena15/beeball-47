@@ -192,7 +192,7 @@ body.in-menu #hud, body.in-menu #hud-r, body.in-menu #slots-hud, body.in-menu #b
 .opt small { display: block; flex-basis: 100%; order: 3; font-size: 12px; font-weight: 400; opacity: 0.6; margin-top: -4px; }
 .opt input[type=checkbox] { margin-left: auto; width: 22px; height: 22px; accent-color: #ffc21a; cursor: pointer; }
 .opt input[type=range] { margin-left: auto; width: 160px; accent-color: #ffc21a; }
-#opt-volume-v { width: 36px; text-align: right; font-variant-numeric: tabular-nums; opacity: 0.8; }
+#opt-volume-v, #opt-music-v { width: 36px; text-align: right; font-variant-numeric: tabular-nums; opacity: 0.8; }
 
 #gear {
   position: fixed; right: 16px; bottom: 16px; z-index: 6; width: 42px; height: 42px; border-radius: 50%;

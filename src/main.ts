@@ -59,15 +59,19 @@ const sfx = new Sfx();
 
 // ── 설정 (브라우저에만 저장, 못 읽으면 기본값) ──
 const SETTINGS_KEY = 'beeball47.settings';
-const opts = { volume: 80, buzz: true, shake: true, lite: false, demo: true };
+const opts = { volume: 80, music: 60, buzz: true, shake: true, lite: false, demo: true };
 try { Object.assign(opts, JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}')); } catch { /* 기본값 */ }
 function applyOpts() {
   sfx.volume = opts.volume / 100;
+  sfx.musicVolume = opts.music / 100;
   sfx.buzzOn = opts.buzz;
   sfx.apply();
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(opts)); } catch { /* 저장 불가 */ }
 }
 applyOpts();
+
+// 브라우저는 사용자 입력 전에는 소리를 못 낸다. 아무 데나 처음 누르면 오디오(배경음악 포함)를 켠다
+for (const ev of ['pointerdown', 'keydown'] as const) window.addEventListener(ev, () => sfx.init(), { once: true });
 
 const app = new Application();
 await app.init({
@@ -171,6 +175,7 @@ let honey = 0, shownHoney = 0, totalHoney = 0;
 let hiveHP = 100, hiveFlash = 0;
 let wave = 0, waveState: 'break' | 'spawn' | 'shop' = 'break', waveTimer = 1.2, toSpawn = 0, spawnT = 0;
 let chain = 0, maxChain = 0, kills = 0, lostBees = 0, waveLost = 0, waveHoney = 0;
+let hottestNow = 0;
 let lastStopAt = 0, chainShow = 0, beesHurt = false;
 let freeze = 0, trauma = 0, time = 0, beeSpawnT = 0, scoutT = 0, shopDelay = 0;
 let over = false;
@@ -771,6 +776,7 @@ function update(dt: number) {
   hornets = hornets.filter(h => h.alive);
   bees = bees.filter(b => b.state !== -1);
   sfx.setBuzz(Math.min(1, balled / 120), hottest);
+  hottestNow = hottest;
 
 
   // 파티클
@@ -1118,9 +1124,15 @@ const optBuzz = $('opt-buzz') as HTMLInputElement, optShake = $('opt-shake') as 
 const optLite = $('opt-lite') as HTMLInputElement, optDemo = $('opt-demo') as HTMLInputElement;
 function openSettings() {
   optVol.value = String(opts.volume); optVolV.textContent = String(opts.volume);
+  optMusic.value = String(opts.music); optMusicV.textContent = String(opts.music);
   optBuzz.checked = opts.buzz; optShake.checked = opts.shake; optLite.checked = opts.lite; optDemo.checked = opts.demo;
   settingsEl.hidden = false;
 }
+const optMusic = $('opt-music') as HTMLInputElement, optMusicV = $('opt-music-v');
+optMusic.addEventListener('input', () => {
+  opts.music = Number(optMusic.value); optMusicV.textContent = optMusic.value;
+  applyOpts();
+});
 optVol.addEventListener('input', () => {
   opts.volume = Number(optVol.value); optVolV.textContent = optVol.value;
   applyOpts();
@@ -1137,6 +1149,7 @@ function setPaused(p: boolean) {
   if (inMenu || over) p = false;
   paused = p;
   pauseEl.hidden = !p;
+  sfx.setIntensity(musicIntensity());
   if (p) sfx.setBuzz(0, 0);
 }
 $('gear').addEventListener('click', () => setPaused(true));
@@ -1237,6 +1250,18 @@ function tick(dt: number) {
 
 const hudCache = { honey: '', bees: '', hp: '' };
 
+// 배경음악 긴장도: 말벌이 많고, 공이 뜨겁고, 벌집이 위험할수록 악기가 겹겹이 들어온다
+function musicIntensity() {
+  if (over) return 0;
+  if (paused) return 0.1;
+  if (inMenu) return 0.32;
+  if (waveState === 'shop') return 0.12;
+  if (hornets.some(h => h.boss)) return 1;
+  let I = 0.4 + Math.min(0.3, hornets.length / 40) + hottestNow * 0.12;
+  if (hiveHP < S.maxHP() * 0.35) I += 0.15;
+  return Math.min(1, I * Math.min(1, 0.7 + wave * 0.06));
+}
+
 // 개발용 계측: 프레임마다 게임 로직 시간, 히트스톱으로 멈춘 시간
 const prof = { maxTickMs: 0, slowTicks: 0, frozen: 0, frames: 0 };
 app.ticker.add((tk) => {
@@ -1254,6 +1279,8 @@ app.ticker.add((tk) => {
   const sh = opts.shake ? trauma * trauma * (inMenu ? 6 : 18) : 0; // 메뉴 뒤에서는 살짝만
   world.x = rand(-sh, sh);
   world.y = rand(-sh, sh);
+
+  sfx.setIntensity(musicIntensity());
 
   if (chainShow) {
     chainEl.textContent = chainShow >= 5 ? `${chainShow} CHAIN!!` : `${chainShow} CHAIN`;
