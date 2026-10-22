@@ -1,6 +1,6 @@
 import { Application, BitmapText, Container, Graphics, Sprite, Texture, type TextStyleOptions } from 'pixi.js';
 import { Sfx } from './audio';
-import { MAX_SLOTS, S, TAGS, colony, byId, cost, equip, lv, resetUpgrades, rollCards, slots, tagCount, trait, unequip, type UpDef } from './upgrades';
+import { MAX_EXTRA, MAX_SLOTS, S, TAGS, extra, maxSlots, colony, byId, cost, equip, lv, resetUpgrades, rollCards, slots, tagCount, trait, unequip, type UpDef } from './upgrades';
 import { LANGS, detectLang, lang, setLang, t, type Key, type Lang } from './i18n';
 import './style.css';
 
@@ -438,6 +438,8 @@ function cook(h: Hornet) {
   else chain = lv.fuse ? Math.max(1, Math.floor(chain / 2) + 1) : 1;
   maxChain = Math.max(maxChain, chain);
   kills++;
+  if (chain >= 20) gainSlot('chain');
+  if (h.boss && !h.atHive) gainSlot('queen');
 
   // 연쇄 꿀 배율은 최대 ×3 (연쇄 숫자 자체는 계속 커짐)
   const gain = Math.round(h.k.honey * Math.min(3, 1 + 0.25 * (chain - 1)) * S.honeyMult());
@@ -533,6 +535,7 @@ function killBee(b: Bee, inBall = false) {
 function startWave() {
   wave++;
   colony.wave = wave;
+  waveHiveHit = false;
   waveState = 'spawn';
   toSpawn = 6 + Math.floor(wave * 2 + wave * wave * 0.1);
   spawnT = 0.5;
@@ -740,6 +743,7 @@ function update(dt: number) {
       // 벌집 공격
       const press = h.attached < 48 ? 1 : 0.25;
       hiveHP -= h.k.dmg * press * S.hiveDamageMult() * dt;
+      if (h.k.dmg > 0) waveHiveHit = true;
       h.killT -= dt;
       if (h.killT <= 0 && press === 1) {
         h.killT = 0.45;
@@ -905,6 +909,26 @@ function gameOver() {
   shopEl.hidden = true;
 }
 
+// ── 숨겨진 벌방: 숨은 조건 하나 또는 비밀 카드로 장착 슬롯 +1 (그 판에서만, 합쳐서 최대 2칸) ──
+const secretEl = $('secret');
+let secretsFound = new Set<string>();
+let waveHiveHit = false; // 이번 웨이브에 벌집이 맞았는지 (무피해 조건)
+function gainSlot(why: 'chain' | 'queen' | 'flawless' | 'card') {
+  if (inMenu || extra.slots >= MAX_EXTRA) return;
+  if (why !== 'card') {
+    if (secretsFound.has(why)) return;
+    secretsFound.add(why);
+  }
+  extra.slots++;
+  secretEl.innerHTML = `<b>🗝️ ${t('secret.found')}</b><small>${t(`secret.${why}`)} · ${t('secret.slot')}</small>`;
+  secretEl.classList.remove('go');
+  void secretEl.offsetWidth;
+  secretEl.classList.add('go');
+  sfx.buy();
+  renderSlots();
+  if (!shopEl.hidden) renderShop();
+}
+
 // ── 상점 ──
 const shopEl = $('shop'), cardsEl = $('cards'), slotsEl = $('slots'), slotsHudEl = $('slots-hud');
 const shopMsgEl = $('shop-msg'), traitsEl = $('traits');
@@ -916,6 +940,7 @@ let pending: number | null = null; // 슬롯이 가득 찬 상태에서 고른 �
 
 function openShop() {
   if (over) return;
+  if (wave >= 8 && !waveHiveHit) gainSlot('flawless');
   const bonus = S.interest(honey) + S.waveBonus();
   honey += bonus;
   shopHead = { honey: waveHoney, lost: waveLost, bonus };
@@ -941,12 +966,13 @@ function renderShopHead() {
 
 function renderSlots() {
   const cells: string[] = [];
-  for (let i = 0; i < MAX_SLOTS; i++) {
+  for (let i = 0; i < maxSlots(); i++) {
     const id = slots[i];
-    if (!id) { cells.push(`<div class="slot empty"></div>`); continue; }
+    const ex = i >= MAX_SLOTS ? ' extra' : ''; // 숨겨진 벌방으로 늘어난 칸
+    if (!id) { cells.push(`<div class="slot empty${ex}"></div>`); continue; }
     const u = byId(id);
     const lit = u.tag !== 'base' && trait(u.tag) ? ' lit' : '';
-    cells.push(`<div class="slot r${u.rarity}${lit}${pending !== null ? ' pick' : ''}" data-id="${id}" title="${u.name}: ${u.desc}">` +
+    cells.push(`<div class="slot r${u.rarity}${lit}${ex}${pending !== null ? ' pick' : ''}" data-id="${id}" ${tipAttrs(u)}>` +
       `<span class="icon">${u.icon}</span><span class="lv">${lv[id]}</span></div>`);
   }
   slotsEl.innerHTML = cells.join('');
@@ -969,25 +995,25 @@ function renderTraits() {
 }
 
 function renderShop() {
-  const rar = [t('rarity.0'), t('rarity.1'), t('rarity.2')];
-  const full = slots.length >= MAX_SLOTS;
+  const rar = [t('rarity.0'), t('rarity.1'), t('rarity.2'), t('rarity.3')];
+  const full = slots.length >= maxSlots();
   cardsEl.innerHTML = '';
   shopCards.forEach((u, i) => {
     const c = cost(u);
     const owned = slots.includes(u.id);
     const el = document.createElement('div');
     el.className = `card r${u.rarity}` + (sold.has(i) ? ' sold' : honey < c ? ' poor' : '') + (pending === i ? ' chosen' : '');
-    const tag = owned ? t('card.owned', { a: lv[u.id], b: lv[u.id] + 1 }) : full ? t('card.full') : t('card.new');
+    const tag = u.instant ? t('card.secret') : owned ? t('card.owned', { a: lv[u.id], b: lv[u.id] + 1 }) : full ? t('card.full') : t('card.new');
     el.innerHTML =
-      `<div class="rar">${rar[u.rarity]} · ${u.tag === 'base' ? t('card.base') : TAGS[u.tag].icon + ' ' + TAGS[u.tag].name}</div><div class="icon">${u.icon}</div>` +
+      `<div class="rar">${rar[u.rarity]}${u.instant ? '' : ' · ' + (u.tag === 'base' ? t('card.base') : TAGS[u.tag].icon + ' ' + TAGS[u.tag].name)}</div><div class="icon">${u.icon}</div>` +
       `<div class="name">${u.name}</div><div class="desc">${u.desc}</div>` +
-      `<div class="lvl${!owned && full ? ' warn' : ''}">${tag}</div><div class="price">🍯 ${c}</div>`;
+      `<div class="lvl${!owned && full && !u.instant ? ' warn' : ''}">${tag}</div><div class="price">🍯 ${c}</div>`;
     el.addEventListener('click', () => buy(i));
     cardsEl.appendChild(el);
   });
   shopMsgEl.textContent = pending !== null
     ? t('shop.pick', { name: shopCards[pending].name })
-    : t('shop.slots', { n: slots.length, max: MAX_SLOTS });
+    : t('shop.slots', { n: slots.length, max: maxSlots() });
   shopMsgEl.classList.toggle('warn', pending !== null);
   renderSlots();
   renderTraits();
@@ -1001,7 +1027,15 @@ function buy(i: number) {
   const u = shopCards[i];
   const c = cost(u);
   if (sold.has(i) || honey < c) return;
-  if (!slots.includes(u.id) && slots.length >= MAX_SLOTS) {
+  if (u.instant) {
+    // 비밀 카드: 슬롯에 끼지 않고 바로 칸을 늘린다
+    honey -= c;
+    lv[u.id]++;
+    gainSlot('card');
+    finishBuy(i);
+    return;
+  }
+  if (!slots.includes(u.id) && slots.length >= maxSlots()) {
     pending = pending === i ? null : i;
     renderShop();
     return;
@@ -1074,6 +1108,7 @@ function reset() {
   waveEl.textContent = 'WAVE 1';
   chain = maxChain = kills = lostBees = waveLost = waveHoney = 0;
   repairs = 0;
+  secretsFound = new Set();
   freeze = trauma = scoutT = shopDelay = 0;
   over = false;
   overEl.hidden = true;
@@ -1083,6 +1118,40 @@ function reset() {
   for (let i = 0; i < S.maxBees(); i++) addBee(cx + rand(-60, 60), cy + rand(-60, 60));
 }
 $('restart').addEventListener('click', () => { sfx.init(); reset(); });
+
+// ── 말풍선: 브라우저 기본 툴팁 대신 게임 스타일로. data-tip(제목) / data-tip-body(설명) / data-tip-r(등급 색) ──
+const tipEl = $('tip');
+function tipAttrs(u: UpDef) {
+  const esc = (x: string) => x.replace(/"/g, '&quot;');
+  return `data-tip="${esc(`${u.icon} ${u.name}`)}" data-tip-body="${esc(u.desc)}" data-tip-r="${u.rarity}"`;
+}
+let tipFor: HTMLElement | null = null;
+function placeTip(x: number, y: number) {
+  const r = tipEl.getBoundingClientRect();
+  let tx = x + 14, ty = y - r.height - 12; // 기본은 포인터 오른쪽 위
+  if (tx + r.width > innerWidth - 8) tx = x - r.width - 14;
+  if (ty < 8) ty = y + 18;
+  tipEl.style.transform = `translate(${Math.round(tx)}px, ${Math.round(ty)}px)`;
+}
+document.addEventListener('pointerover', (e) => {
+  if (e.pointerType === 'touch') return;
+  const el = (e.target as HTMLElement).closest?.('[data-tip]') as HTMLElement | null;
+  if (!el || el === tipFor) return;
+  tipFor = el;
+  const body = el.dataset.tipBody;
+  tipEl.innerHTML = `<b>${el.dataset.tip}</b>` + (body ? `<span>${body}</span>` : '');
+  tipEl.className = `show r${el.dataset.tipR ?? 0}`;
+  placeTip(e.clientX, e.clientY);
+});
+document.addEventListener('pointermove', (e) => { if (tipFor) placeTip(e.clientX, e.clientY); });
+document.addEventListener('pointerout', (e) => {
+  if (!tipFor) return;
+  const to = e.relatedTarget as HTMLElement | null;
+  if (to && tipFor.contains(to)) return;
+  tipFor = null;
+  tipEl.className = '';
+});
+document.addEventListener('pointerdown', () => { tipFor = null; tipEl.className = ''; });
 
 // ── 메인 메뉴 ──
 const menuEl = $('menu');
@@ -1205,6 +1274,8 @@ if (import.meta.env.DEV) {
     give: (n: number) => { honey += n; },
     spawn: (kind: Kind, x: number, y: number) => addHornet(x - world.x, y - world.y, kind),
     prof: () => ({ ...prof }),
+    offer: (id: UpDef['id']) => { shopCards[0] = byId(id); sold.delete(0); renderShop(); },
+    secret: (why: 'chain' | 'queen' | 'flawless') => gainSlot(why),
     profReset: () => Object.assign(prof, { maxTickMs: 0, slowTicks: 0, frozen: 0, frames: 0 }),
     // 연쇄 재현: 한 점 주변에 말벌 n마리를 촘촘히 깔고 거의 익은 상태로 만든 뒤 하나를 누른다
     chainBench: (n: number) => {
@@ -1253,7 +1324,7 @@ if (import.meta.env.DEV) {
       shop: () => ({
         cards: shopCards.map((u, i) => ({ i, id: u.id, tag: u.tag, rarity: u.rarity, cost: cost(u), sold: sold.has(i), owned: slots.includes(u.id) })),
         slots: slots.map(id => ({ id, tag: byId(id).tag, lv: lv[id] })),
-        reroll: rerollCost(), repair: repairCost(), honey,
+        reroll: rerollCost(), repair: repairCost(), honey, maxSlots: maxSlots(),
       }),
       buy: (i: number) => buy(i),
       replace: (id: UpDef['id']) => replaceSlot(id),

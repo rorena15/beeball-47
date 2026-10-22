@@ -23,6 +23,7 @@ function playGame({ build, react, maxWave, maxMinutes }) {
   let t = 0, nextAct = 0, clicks = 0, shops = 0;
 
   const pref = (c) => {
+    if (c.id === 'hidden') return 9; // 비밀 카드는 보이면 산다
     if (build === 'none') return -1;
     if (c.tag === build) return 3 + (c.owned ? 1 : 0) + c.rarity * 0.5;
     if (c.tag === 'base') return (build === 'base' ? 1.5 : 0) + BASE_PREF[c.id] + (c.owned ? 0.5 : 0);
@@ -41,7 +42,7 @@ function playGame({ build, react, maxWave, maxMinutes }) {
         .sort((a, b) => pref(b) - pref(a));
       let bought = false;
       for (const c of cands) {
-        if (c.owned || sh.slots.length < 5) { g.buy(c.i); bought = true; break; }
+        if (c.owned || c.id === 'hidden' || sh.slots.length < sh.maxSlots) { g.buy(c.i); bought = true; break; }
         // 슬롯이 가득: 가장 쓸모없는 카드와 교체할 가치가 있으면 교체
         const worst = sh.slots
           .map(s => ({ ...s, p: pref({ ...s, owned: true, rarity: 0 }) }))

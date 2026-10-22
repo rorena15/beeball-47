@@ -59,6 +59,15 @@ const ko = {
   'rarity.1': '희귀',
   'rarity.2': '전설',
   'trait.need': '3장: {bonus}',
+  'rarity.3': '비밀',
+  'card.secret': '장착 안 함 · 슬롯 +1',
+  'secret.found': '숨겨진 벌방 발견!',
+  'secret.slot': '장착 슬롯 +1',
+  'secret.chain': '20연쇄 달성',
+  'secret.queen': '여왕말벌을 벌집에 닿기 전에 처치',
+  'secret.flawless': '벌집 피해 없이 웨이브 통과',
+  'secret.card': '비밀 카드',
+  'up.hidden.name': '숨겨진 벌방', 'up.hidden.desc': '이번 판 동안 장착 슬롯 +1 (숨겨진 벌방은 최대 2칸)',
 
   'pattern.rush': '돌격',
   'pattern.surround': '포위',
@@ -162,6 +171,15 @@ const en: Partial<Record<Key, string>> = {
   'rarity.1': 'Rare',
   'rarity.2': 'Legendary',
   'trait.need': '3 cards: {bonus}',
+  'rarity.3': 'Secret',
+  'card.secret': 'Not equipped · Slot +1',
+  'secret.found': 'Hidden cell found!',
+  'secret.slot': 'Card slot +1',
+  'secret.chain': 'Reached a 20 chain',
+  'secret.queen': 'Killed the Queen before she reached the hive',
+  'secret.flawless': 'Cleared a wave without hive damage',
+  'secret.card': 'Secret card',
+  'up.hidden.name': 'Hidden Cell', 'up.hidden.desc': 'Card slot +1 for this run (up to 2 hidden cells)',
 
   'pattern.rush': 'Charge',
   'pattern.surround': 'Encircle',
@@ -229,10 +247,10 @@ export function setLang(l: Lang) {
   lang = l;
   document.documentElement.lang = l;
   document.title = t('title');
-  // 고정 글자: data-i18n="키" 는 글자로, data-i18n-html="키" 는 HTML로, data-i18n-title="키" 는 툴팁으로
+  // 고정 글자: data-i18n="키" 는 글자로, data-i18n-html="키" 는 HTML로, data-i18n-tip="키" 는 말풍선으로
   document.querySelectorAll<HTMLElement>('[data-i18n]').forEach(el => (el.textContent = t(el.dataset.i18n as Key)));
   document.querySelectorAll<HTMLElement>('[data-i18n-html]').forEach(el => (el.innerHTML = t(el.dataset.i18nHtml as Key)));
-  document.querySelectorAll<HTMLElement>('[data-i18n-title]').forEach(el => (el.title = t(el.dataset.i18nTitle as Key)));
+  document.querySelectorAll<HTMLElement>('[data-i18n-tip]').forEach(el => (el.dataset.tip = t(el.dataset.i18nTip as Key)));
   document.documentElement.style.setProperty('--sold-label', JSON.stringify(t('shop.sold')));
 }
 

@@ -11,7 +11,8 @@ export type UpId =
   | 'elite' | 'veteran' | 'tough' | 'resist' | 'royal'
   | 'honey' | 'interest' | 'jelly' | 'merchant'
   | 'armor' | 'spiky' | 'guard'
-  | 'scout' | 'mark' | 'alarm';
+  | 'scout' | 'mark' | 'alarm'
+  | 'hidden';
 
 // 이름·설명 글자는 i18n.ts 사전에 있다 (up.<id>.name / .desc). 여기서는 읽기 전용 속성으로 붙인다
 export interface UpDef {
@@ -20,7 +21,8 @@ export interface UpDef {
   icon: string;
   readonly name: string;
   readonly desc: string;
-  rarity: 0 | 1 | 2; // 일반 / 희귀 / 전설
+  rarity: 0 | 1 | 2 | 3; // 일반 / 희귀 / 전설 / 비밀
+  instant?: boolean; // 슬롯에 끼지 않고 사는 즉시 효과
   max: number;
 }
 
@@ -82,13 +84,16 @@ export const UPGRADES: UpDef[] = ([
   { id: 'scout', tag: 'auto', icon: '🔭', rarity: 1, max: 3 },
   { id: 'mark', tag: 'auto', icon: '🎯', rarity: 1, max: 2 },
   { id: 'alarm', tag: 'auto', icon: '🚨', rarity: 2, max: 1 },
+
+  // 비밀: 아주 드물게 뜬다. 슬롯을 차지하지 않고 장착 슬롯을 1칸 늘린다
+  { id: 'hidden', tag: 'base', icon: '🗝️', rarity: 3, max: 2, instant: true },
 ] as Omit<UpDef, 'name' | 'desc'>[]).map(u => ({
   ...u,
   get name() { return t(`up.${u.id}.name` as Key); },
   get desc() { return t(`up.${u.id}.desc` as Key); },
 }));
 
-const BASE_COST = [60, 130, 280];
+const BASE_COST = [60, 130, 280, 160];
 
 export const lv = Object.fromEntries(UPGRADES.map(u => [u.id, 0])) as Record<UpId, number>;
 
@@ -96,6 +101,10 @@ export const lv = Object.fromEntries(UPGRADES.map(u => [u.id, 0])) as Record<UpI
 export const colony = { wave: 0 };
 
 export const MAX_SLOTS = 5;
+/** 숨은 조건이나 비밀 카드로 늘어나는 슬롯 (그 판에서만, 둘을 합쳐 최대 2칸) */
+export const MAX_EXTRA = 2;
+export const extra = { slots: 0 };
+export const maxSlots = () => MAX_SLOTS + extra.slots;
 export const slots: UpId[] = [];
 
 export const byId = (id: UpId) => UPGRADES.find(u => u.id === id)!;
@@ -103,6 +112,7 @@ export const byId = (id: UpId) => UPGRADES.find(u => u.id === id)!;
 export function resetUpgrades() {
   for (const k in lv) lv[k as UpId] = 0;
   slots.length = 0;
+  extra.slots = 0;
 }
 
 export function equip(id: UpId) {
@@ -129,10 +139,10 @@ export function cost(u: UpDef) {
 
 /** 가중치 랜덤으로 서로 다른 카드 n장. 이미 장착한 계열은 더 잘 나온다 */
 export function rollCards(n: number): UpDef[] {
-  const weight = [62, 30, 8];
+  const weight = [62, 30, 8, 12]; // 비밀 카드는 상점 한 번에 3% 안팎
   const owned = new Set(slots.map(id => byId(id).tag));
   const w = (u: UpDef) => weight[u.rarity] * (u.tag !== 'base' && owned.has(u.tag) ? 1.8 : 1);
-  const pool = UPGRADES.filter(u => lv[u.id] < u.max);
+  const pool = UPGRADES.filter(u => lv[u.id] < u.max && !(u.instant && extra.slots >= MAX_EXTRA));
   const out: UpDef[] = [];
   while (out.length < n && pool.length) {
     const total = pool.reduce((s, u) => s + w(u), 0);
