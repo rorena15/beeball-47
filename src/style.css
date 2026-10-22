@@ -248,3 +248,95 @@ body.in-menu #hud, body.in-menu #hud-r, body.in-menu #slots-hud, body.in-menu #b
 #tip.r2 { border-color: #c45cff; }
 #tip.r3 { border-color: #ffc21a; }
 #slots-hud .slot { pointer-events: auto; }
+
+/* ── 모바일 ── */
+/* 더블탭 확대·끌어서 스크롤·길게 눌러 메뉴 막기 */
+html, body { touch-action: none; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+#shop, .panel, #menu { touch-action: pan-y; } /* 창 안은 위아래 스크롤만 */
+body.shop-open #slots-hud, body.shop-open #gear, body.shop-open #hint { visibility: hidden; }
+/* 노치·홈 바 피하기 */
+#hud { left: max(16px, env(safe-area-inset-left)); top: max(16px, env(safe-area-inset-top)); }
+#hud-r { right: max(16px, env(safe-area-inset-right)); top: max(16px, env(safe-area-inset-top)); }
+#slots-hud { bottom: max(16px, env(safe-area-inset-bottom)); }
+#gear { bottom: max(16px, env(safe-area-inset-bottom)); }
+#chain { font-size: min(110px, 18vw) !important; }
+
+@media (max-width: 640px), (max-height: 520px) {
+  .stat { font-size: 19px; }
+  .stat .ic { font-size: 16px; }
+  #wave { font-size: 15px; }
+  .hp { width: 120px; height: 8px; }
+  #hint { bottom: 72px; font-size: 12px; padding: 0 16px; }
+  #banner { font-size: 32px; letter-spacing: 3px; width: 92vw; text-align: center; }
+  #banner small { font-size: 14px; letter-spacing: 0; }
+  #secret b { font-size: 22px; }
+  #secret { width: 88vw; }
+
+  /* 상점: 위에서부터 쌓고 스크롤. 카드는 가로형 한 줄 */
+  /* 위쪽은 꿀·벌 HUD 자리 (상점에서도 잔액은 보여야 하므로 HUD는 그대로 두고 내용을 내린다) */
+  #shop { align-items: flex-start; overflow-y: auto; padding: calc(max(14px, env(safe-area-inset-top)) + 78px) 12px max(18px, env(safe-area-inset-bottom)); }
+  .shop-head { margin-bottom: 10px; }
+  .shop-head h2 { font-size: 22px; }
+  #shop-sub { font-size: 13px; }
+  #cards { grid-template-columns: 1fr; gap: 8px; }
+  .card {
+    min-height: 0; padding: 10px 12px; text-align: left; gap: 2px 12px;
+    display: grid; grid-template-columns: 44px 1fr auto; grid-template-areas: "icon rar price" "icon name price" "icon desc desc" "icon lvl lvl";
+    align-items: center;
+  }
+  .card:hover { transform: none; }
+  .card .icon { grid-area: icon; font-size: 34px; align-self: center; text-align: center; }
+  .card .rar { grid-area: rar; font-size: 10px; letter-spacing: 1px; }
+  .card .name { grid-area: name; font-size: 16px; }
+  .card .desc { grid-area: desc; font-size: 13px; }
+  .card .lvl { grid-area: lvl; font-size: 11px; }
+  .card .price { grid-area: price; font-size: 17px; align-self: center; white-space: nowrap; }
+  .card.chosen { transform: none; }
+  .slots { flex-wrap: wrap; }
+  .slot { width: 46px; height: 46px; }
+  .slot .icon { font-size: 22px; }
+  #slots-hud .slot { width: 34px; height: 34px; }
+  #slots-hud .slot .icon { font-size: 17px; }
+  #slots-hud { gap: 4px; left: 12px; }
+  .shop-row { margin-top: 12px; }
+  .shop-row button { font-size: 15px; padding: 10px 14px; flex: 1 1 auto; }
+  #next { flex-basis: 100%; order: -1; font-size: 18px; padding: 12px; }
+  /* 버튼 줄은 상점 창 아래에 붙여 두어 스크롤해도 항상 보이게 */
+  .shop-row {
+    position: sticky; bottom: calc(-1 * max(18px, env(safe-area-inset-bottom))); z-index: 1;
+    padding: 10px 0 max(14px, env(safe-area-inset-bottom)); background: linear-gradient(transparent, #0c0600 30%);
+  }
+  #shop-msg { margin-top: 10px; font-size: 12px; }
+
+  .logo { font-size: 52px; }
+  .menu-box { margin-top: 12vh; }
+  .panel-box { padding: 16px; }
+  .opt input[type=range] { width: 120px; }
+}
+
+/* 가로로 눕힌 폰: 높이가 낮으니 카드를 세 장 나란히, 작게 */
+@media (max-height: 520px) and (min-width: 641px) {
+  #shop { padding-top: calc(max(10px, env(safe-area-inset-top)) + 8px); }
+  .shop-head { margin-bottom: 6px; }
+  #cards { grid-template-columns: repeat(3, 1fr); }
+  .card {
+    display: flex; flex-direction: column; text-align: center; padding: 8px 10px; gap: 2px;
+  }
+  .card .icon { font-size: 26px; }
+  .card .name { font-size: 15px; }
+  .card .desc { font-size: 12px; line-height: 1.35; }
+  .card .price { font-size: 15px; }
+  .shop-box { max-width: 720px; }
+  #next { flex-basis: auto; order: 0; font-size: 16px; padding: 10px 18px; }
+  .shop-row { flex-wrap: nowrap; margin-top: 8px; }
+  #slots { margin-top: 4px; }
+  #slots .slot { width: 36px; height: 36px; }
+  #slots .slot .icon { font-size: 18px; }
+  .slot .lv { min-width: 16px; height: 16px; font-size: 10px; right: -4px; bottom: -4px; }
+  #shop-msg { margin-top: 4px; font-size: 11px; }
+  #traits { margin-top: 6px; }
+  .trait { padding: 3px 8px; font-size: 11px; }
+  .trait span { display: none; }
+  .shop-head h2 { font-size: 20px; }
+  .shop-row button { padding: 7px 14px; font-size: 14px; }
+}

@@ -67,6 +67,8 @@ const sfx = new Sfx();
 // ── 설정 (브라우저에만 저장, 못 읽으면 기본값) ──
 const SETTINGS_KEY = 'beeball47.settings';
 const opts = { lang: '' as string, volume: 80, music: 60, buzz: true, shake: true, lite: false, demo: true };
+// 터치 기기(폰·태블릿)는 처음엔 효과 줄이기를 켠 채로 시작 (저장된 설정이 있으면 그걸 따름)
+if (matchMedia('(pointer: coarse)').matches) opts.lite = true;
 try { Object.assign(opts, JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}')); } catch { /* 기본값 */ }
 function applyOpts() {
   sfx.volume = opts.volume / 100;
@@ -195,9 +197,17 @@ let honeyTarget = { x: 40, y: 30 };
 
 function rand(a: number, b: number) { return a + Math.random() * (b - a); }
 
+// 화면 배율: 폰처럼 작은 화면에서는 월드(벌집·벌·말벌) 전체를 줄여 말벌이 날아올 자리를 만든다
+// 월드 좌표 = 화면 좌표 / VS. 글자는 줄어든 만큼 다시 키워서 읽을 수 있게 (TEXT_K)
+let VS = 1, TEXT_K = 1;
+const vw = () => app.screen.width / VS, vh = () => app.screen.height / VS;
+
 function layout() {
-  cx = app.screen.width / 2;
-  cy = app.screen.height / 2 + 10;
+  VS = Math.max(0.58, Math.min(1, Math.min(app.screen.width, app.screen.height) / 760));
+  TEXT_K = Math.min(1.5, 0.88 / VS);
+  world.scale.set(VS);
+  cx = vw() / 2;
+  cy = vh() / 2 + 10;
   const r = honeyEl.getBoundingClientRect();
   honeyTarget = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
   drawBackground();
@@ -214,7 +224,7 @@ function hexPath(g: Graphics, x: number, y: number, r: number) {
 }
 
 function drawBackground() {
-  const w = app.screen.width, h = app.screen.height;
+  const w = vw(), h = vh();
   bg.clear();
   bg.rect(-50, -50, w + 100, h + 100).fill(0x140d04);
   const r = 34, dx = r * Math.sqrt(3), dy = r * 1.5;
@@ -311,10 +321,10 @@ function pickKind(): Kind {
 
 function spawnGroup() {
   // 출발 거리. 데모는 방향과 상관없이 화면 테두리 바로 바깥에서 나와 금방 보이게
-  const far = Math.max(app.screen.width, app.screen.height) * 0.62 + 40;
-  const Rof = (a: number) => inMenu
-    ? Math.min(Math.abs(app.screen.width / 2 / Math.cos(a)), Math.abs(app.screen.height / 2 / Math.sin(a))) + 30
-    : far;
+  // 그 방향의 화면 테두리까지 거리. 출발점은 테두리에서 너무 멀지 않게 (세로 폰에서 옆 말벌이 한참 안 보이던 문제)
+  const edge = (a: number) => Math.min(Math.abs(vw() / 2 / Math.cos(a)), Math.abs(vh() / 2 / Math.sin(a)));
+  const far = Math.max(vw(), vh()) * 0.62 + 40;
+  const Rof = (a: number) => inMenu ? edge(a) + 30 : Math.min(far, edge(a) + 200);
   const at = (a: number, spread: number, kind: Kind) => {
     const rr = Rof(a) + rand(0, inMenu ? spread * 0.3 : spread);
     addHornet(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, kind);
@@ -380,7 +390,7 @@ function popup(x: number, y: number, text: string, size: number, color: number) 
   const t = new BitmapText({ text, style: POPUP_STYLE });
   t.anchor.set(0.5);
   t.tint = color;
-  t.scale.set(size / 26);
+  t.scale.set(size / 26 * TEXT_K);
   t.position.set(x, y);
   labelLayer.addChild(t);
   popups.push({ t, life: 0.9, vy: -70 });
@@ -409,7 +419,7 @@ function dispatchTo(h: Hornet, count = S.sendCount(), auto = false) {
 app.canvas.addEventListener('pointerdown', (e) => {
   sfx.init();
   if (over || inMenu) return;
-  const x = e.clientX - world.x, y = e.clientY - world.y;
+  const x = (e.clientX - world.x) / VS, y = (e.clientY - world.y) / VS;
   let best: Hornet | null = null, bd = Infinity;
   for (const h of hornets) {
     if (!h.alive) continue;
@@ -468,7 +478,7 @@ function cook(h: Hornet) {
     s.scale.set(rand(0.6, 0.95));
     dropLayer.addChild(s);
     const a = Math.random() * Math.PI * 2, v = rand(140, 380);
-    drops.push({ s, x: h.x + world.x, y: h.y + world.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, age: 0, value: gain / nd });
+    drops.push({ s, x: h.x * VS + world.x, y: h.y * VS + world.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, age: 0, value: gain / nd });
   }
 
   // 과열사: 공에 붙어 있던 벌 일부가 같이 죽는다
@@ -560,7 +570,8 @@ function startWave() {
   void bannerEl.offsetWidth;
   bannerEl.classList.add('go');
   if (boss) {
-    const a = Math.random() * Math.PI * 2, R = Math.max(app.screen.width, app.screen.height) * 0.62 + 60;
+    const a = Math.random() * Math.PI * 2;
+    const R = Math.min(Math.max(vw(), vh()) * 0.62 + 60, Math.min(Math.abs(vw() / 2 / Math.cos(a)), Math.abs(vh() / 2 / Math.sin(a))) + 220);
     addHornet(cx + Math.cos(a) * R, cy + Math.sin(a) * R, 'queen');
   }
 }
@@ -782,7 +793,7 @@ function update(dt: number) {
       }
       h.label.position.set(h.x, h.y - h.size - 22 - Math.sqrt(h.attached) * 1.5);
       h.label.tint = frac > 0.8 ? 0xffffff : frac > 0.5 ? 0xffd040 : 0xffa060;
-      h.label.scale.set(1 + frac * 0.35);
+      h.label.scale.set((1 + frac * 0.35) * TEXT_K);
     }
   }
   hornets = hornets.filter(h => h.alive);
@@ -823,7 +834,7 @@ function demoPilot(dt: number) {
   if (demoT > 0) return;
   demoT = rand(0.28, 0.55);
   if (bees.filter(b => b.state === IDLE).length < 40) return;
-  const w = app.screen.width, ht = app.screen.height;
+  const w = vw(), ht = vh();
   const incoming = new Map<Hornet, number>();
   for (const b of bees) if (b.target && (b.state === FLY || b.state === BALL)) incoming.set(b.target, (incoming.get(b.target) ?? 0) + 1);
   const hm = S.heatMult(honey);
@@ -950,6 +961,8 @@ function openShop() {
   sold = new Set();
   renderShop();
   shopEl.hidden = false;
+  shopEl.scrollTop = 0;
+  document.body.classList.add('shop-open');
 }
 
 // rerolls는 유료 횟수만 센다. 상점 안에서 상인을 사도 바로 무료 1회가 생긴다
@@ -1088,6 +1101,7 @@ function doRepair() {
 }
 function doNext() {
   shopEl.hidden = true;
+  document.body.classList.remove('shop-open');
   pending = null;
   waveState = 'break';
   waveTimer = 0.8;
@@ -1113,6 +1127,7 @@ function reset() {
   over = false;
   overEl.hidden = true;
   shopEl.hidden = true;
+  document.body.classList.remove('shop-open');
   resetUpgrades();
   renderSlots();
   for (let i = 0; i < S.maxBees(); i++) addBee(cx + rand(-60, 60), cy + rand(-60, 60));
@@ -1270,9 +1285,9 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) setPa
 // 개발 중 자동 테스트용
 if (import.meta.env.DEV) {
   (window as any).__g = {
-    hornets: () => hornets.map(h => ({ x: h.x + world.x, y: h.y + world.y, temp: h.temp, attached: h.attached })),
+    hornets: () => hornets.map(h => ({ x: h.x * VS + world.x, y: h.y * VS + world.y, temp: h.temp, attached: h.attached })),
     give: (n: number) => { honey += n; },
-    spawn: (kind: Kind, x: number, y: number) => addHornet(x - world.x, y - world.y, kind),
+    spawn: (kind: Kind, x: number, y: number) => addHornet((x - world.x) / VS, (y - world.y) / VS, kind),
     prof: () => ({ ...prof }),
     offer: (id: UpDef['id']) => { shopCards[0] = byId(id); sold.delete(0); renderShop(); },
     secret: (why: 'chain' | 'queen' | 'flawless') => gainSlot(why),
