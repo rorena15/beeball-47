@@ -1,6 +1,6 @@
 import { Application, BitmapText, Container, Graphics, Sprite, Texture, type TextStyleOptions } from 'pixi.js';
 import { Sfx } from './audio';
-import { MAX_EXTRA, MAX_SLOTS, PACE, S, TAGS, extra, maxSlots, colony, byId, cost, equip, lv, resetUpgrades, rollCards, slots, tagCount, trait, unequip, type UpDef } from './upgrades';
+import { MAX_EXTRA, MAX_SLOTS, PACE, S, TAGS, tune, extra, maxSlots, colony, byId, cost, equip, lv, resetUpgrades, rollCards, slots, tagCount, trait, unequip, type UpDef } from './upgrades';
 import { LANGS, detectLang, lang, setLang, t, type Key, type Lang } from './i18n';
 import './style.css';
 
@@ -9,6 +9,9 @@ import './style.css';
 const HEAT_BALL_TEMP = 47;
 const BASE_TEMP = 35;
 const HIVE_R = 58;
+// 웨이브 길이: 한 웨이브 마릿수를 늘리고 등장 간격은 조금 벌린다. 웨이브당 꿀·벌집 피해가 같이 불지 않게 마리당 값을 줄임 (tune)
+// 개발 모드: ?brood=16&waveLen=2&spawnGap=1.2&honeyK=0.5 처럼 주소로 수치를 바꿔 밸런스 봇을 돌린다
+if (import.meta.env.DEV) for (const [k, v] of new URLSearchParams(location.search)) if (k in tune) (tune as any)[k] = Number(v);
 
 const IDLE = 0, FLY = 1, BALL = 2;
 
@@ -453,7 +456,7 @@ function cook(h: Hornet) {
   if (h.boss && !h.atHive) gainSlot('queen');
 
   // 연쇄 꿀 배율은 최대 ×3 (연쇄 숫자 자체는 계속 커짐)
-  const gain = Math.round(h.k.honey * Math.min(3, 1 + 0.25 * (chain - 1)) * S.honeyMult());
+  const gain = Math.max(1, Math.round(h.k.honey * tune.honeyK * Math.min(3, 1 + 0.25 * (chain - 1)) * S.honeyMult()));
   waveHoney += gain;
   const R = S.chainRadius(chain) * (h.boss ? 1.5 : 1);
   // 히트스톱: 연쇄 중에 매번 멈추면 렉처럼 느껴진다. 연쇄 시작과 5의 배수 고비에만, 그것도 0.4초에 한 번. 여왕은 항상
@@ -548,7 +551,7 @@ function startWave() {
   colony.wave = wave;
   waveHiveHit = false;
   waveState = 'spawn';
-  toSpawn = 6 + Math.floor(wave * 2 + wave * wave * 0.1);
+  toSpawn = Math.round((6 + wave * 2 + wave * wave * 0.1) * tune.waveLen);
   spawnT = 0.5;
 
   // 패턴: 초반 두 웨이브와 여왕 웨이브는 흩어짐. 그 뒤로는 웨이브마다 하나를 고른다
@@ -590,7 +593,7 @@ function update(dt: number) {
     if (toSpawn > 0 && spawnT <= 0) {
       spawnGroup();
       if (toSpawn > 0 && Math.random() < 0.35) spawnGroup(); // 다른 방향에서 동시에
-      spawnT = Math.max(0.25, 0.9 - wave * 0.07) * rand(0.6, 1.4) * (inMenu ? 0.6 : 1);
+      spawnT = Math.max(0.25, 0.9 - wave * 0.07) * rand(0.6, 1.4) * (inMenu ? 0.6 : tune.spawnGap);
     }
     if (toSpawn === 0 && hornets.every(h => !h.alive) && (inMenu || drops.length === 0)) {
       if (inMenu) {
@@ -757,7 +760,7 @@ function update(dt: number) {
     } else {
       // 벌집 공격
       const press = h.attached < 48 ? 1 : 0.25;
-      hiveHP -= h.k.dmg * press * S.hiveDamageMult() * dt;
+      hiveHP -= h.k.dmg * press * S.hiveDamageMult() * tune.dmgK * dt;
       if (h.k.dmg > 0) waveHiveHit = true;
       h.killT -= dt;
       if (h.killT <= 0 && press === 1) {

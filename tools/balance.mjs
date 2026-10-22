@@ -6,7 +6,7 @@ import puppeteer from 'puppeteer-core';
 const SEEDS = Number(process.argv[2] ?? 2);
 const MAX_WAVE = Number(process.argv[3] ?? 60);
 const MAX_MINUTES = 30;
-const URL = 'http://localhost:5179/';
+const URL = 'http://localhost:5179/' + (process.env.TUNE ? '?' + process.env.TUNE : ''); // 예: TUNE='brood=16&waveLen=2'
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const BUILDS = process.argv[4]?.split(',') ?? ['none', 'base', 'chain', 'sac', 'elite', 'econ', 'fort', 'auto'];
 const ALL_SKILLS = { pro: 0.3, casual: 0.7 }; // 클릭 사이 반응 시간(초)
@@ -21,6 +21,7 @@ function playGame({ build, react, maxWave, maxMinutes }) {
   const DT = 1 / 20; // 게임 루프가 허용하는 최대 간격(0.05초) 이내
   const BASE_PREF = { heat: 1.6, send: 1.4, cap: 1.2, insul: 1.1, brood: 1.0, wing: 0.6 };
   let t = 0, nextAct = 0, clicks = 0, shops = 0;
+  const waveStart = {}, waveLen = {}; // 웨이브별 소요 시간 (게임 시간, 상점 제외)
 
   const pref = (c) => {
     if (c.id === 'hidden') return 9; // 비밀 카드는 보이면 산다
@@ -80,6 +81,8 @@ function playGame({ build, react, maxWave, maxMinutes }) {
 
   while (true) {
     const st = g.state();
+    if (st.wave && !(st.wave in waveStart)) waveStart[st.wave] = t;
+    if (st.shopOpen && st.wave in waveStart && !(st.wave in waveLen)) waveLen[st.wave] = t - waveStart[st.wave];
     if (st.over || st.wave > maxWave || t > maxMinutes * 60) break;
     if (st.shopOpen) { shopPolicy(); continue; }
     if (t >= nextAct) {
@@ -96,7 +99,7 @@ function playGame({ build, react, maxWave, maxMinutes }) {
     bossAtDeath: st.over && alive.some(h => h.boss), aliveAtDeath: st.over ? alive.length : 0,
     wave: st.over ? st.wave : Math.min(st.wave, maxWave + 1), died: st.over,
     kills: st.kills, maxChain: st.maxChain, lost: st.lostBees, honey: Math.round(st.totalHoney),
-    clicks, minutes: +(t / 60).toFixed(1), slots: sh.slots.map(s => `${s.id}${s.lv}`).join(' '),
+    clicks, minutes: +(t / 60).toFixed(1), waveLen, slots: sh.slots.map(s => `${s.id}${s.lv}`).join(' '),
   };
 }
 
@@ -140,6 +143,18 @@ async function worker() {
 }
 await Promise.all(Array.from({ length: PARALLEL }, worker));
 await browser.close();
+
+// 웨이브 길이: 구간별 평균 (초)
+const BANDS = [[1, 3], [4, 6], [7, 10], [11, 15], [16, 25]];
+console.log('\n=== 웨이브 길이 (초, 상점 제외) ===');
+console.log('skill  ' + BANDS.map(([a, b]) => `w${a}-${b}`.padStart(8)).join(''));
+for (const skill of Object.keys(SKILLS)) {
+  const cells = BANDS.map(([a, b]) => {
+    const xs = results.filter(r => r.skill === skill).flatMap(r => Object.entries(r.waveLen).filter(([w]) => w >= a && w <= b).map(([, v]) => v));
+    return (xs.length ? (xs.reduce((s, x) => s + x, 0) / xs.length).toFixed(1) : '-').padStart(8);
+  });
+  console.log(skill.padEnd(7) + cells.join(''));
+}
 
 // 요약: 스킬 × 빌드별 평균
 const avg = (a) => a.reduce((s, x) => s + x, 0) / a.length;

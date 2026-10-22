@@ -157,6 +157,10 @@ export function rollCards(n: number): UpDef[] {
   return out;
 }
 
+/** 밸런스 조정용 기본값 (개발 모드에서는 주소 뒤 ?brood=..로 바꿔 볼 수 있음) */
+// waveLen: 한 웨이브 마릿수 배수, spawnGap: 등장 간격 배수, honeyK: 마리당 꿀, dmgK: 벌집 피해, brood: 웨이브 중 번식(초당)
+export const tune = { brood: 22, waveLen: 2.5, spawnGap: 1.4, honeyK: 0.7, dmgK: 0.5 };
+
 /** 열구 템포: 발열·식는 속도·독침 주기를 같은 비율로 당긴다. 필요한 벌 수와 한 마리당 손실은 그대로, 익는 시간만 짧아짐 */
 export const PACE = 1.6;
 
@@ -171,7 +175,7 @@ export const S = {
   autoMult: () => (lv.alarm ? 1.6 : 1),
   cooling: () => 0.4 * PACE * Math.pow(0.88, lv.insul),
   sendCount: () => Math.round((60 + 20 * lv.send) * (lv.elite ? 0.5 : 1)),
-  broodRate: () => 11 * (1 + 0.35 * lv.brood) * (1 + 0.08 * colony.wave),
+  broodRate: () => tune.brood * (1 + 0.35 * lv.brood) * (1 + 0.08 * colony.wave),
   maxBees: () => 600 + 140 * lv.cap + 45 * colony.wave,
   beeSpeed: () => 560 * (1 + 0.18 * lv.wing) * (trait('elite') ? 1.4 : 1),
   honeyMult: () => 1 + 0.25 * lv.honey,
