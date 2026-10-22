@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
+import { Application, BitmapText, Container, Graphics, Sprite, Texture, type TextStyleOptions } from 'pixi.js';
 import { Sfx } from './audio';
 import { MAX_SLOTS, S, TAGS, colony, byId, cost, equip, lv, resetUpgrades, rollCards, slots, tagCount, trait, unequip, type UpDef } from './upgrades';
 import './style.css';
@@ -31,7 +31,7 @@ type Pattern = 'scatter' | 'rush' | 'surround' | 'swarm';
 const PATTERN_NAME: Record<Pattern, string> = { scatter: '', rush: '돌격', surround: '포위', swarm: '편대' };
 
 interface Hornet {
-  s: Sprite; glow: Sprite; label: Text; kind: Kind; k: KindDef; orbA: number;
+  s: Sprite; glow: Sprite; label: BitmapText; labelT: number; kind: Kind; k: KindDef; orbA: number;
   x: number; y: number; temp: number; attached: number;
   size: number; boss: boolean; alive: boolean; t: number; speed: number;
   atHive: boolean; killT: number; stingT: number;
@@ -48,7 +48,12 @@ interface Particle {
   life: number; max: number; drag: number; s0: number; s1: number; a0: number;
 }
 interface Drop { s: Sprite; x: number; y: number; vx: number; vy: number; age: number; value: number; }
-interface Popup { t: Text; life: number; vy: number; }
+interface Popup { t: BitmapText; life: number; vy: number; }
+
+// 글자는 BitmapText: 글자 모양을 한 번만 그려 두고 재사용한다 (Text는 바꿀 때마다 캔버스에 다시 그려 GPU로 올려서 연쇄 때 프레임이 튐)
+// 색은 흰 글자에 tint로, 크기는 scale로 바꾼다 (style을 바꾸면 글꼴을 새로 만든다)
+const LABEL_STYLE: TextStyleOptions = { fontFamily: 'system-ui', fontSize: 15, fontWeight: '900', fill: 0xffffff, stroke: { color: 0x000000, width: 4 } };
+const POPUP_STYLE: TextStyleOptions = { fontFamily: 'system-ui', fontSize: 26, fontWeight: '900', fill: 0xffffff, stroke: { color: 0x2a1000, width: 5 } };
 
 const sfx = new Sfx();
 
@@ -120,6 +125,16 @@ function makeDotTex(): Texture {
   g.circle(-1.5, -1.5, 1.6).fill({ color: 0xffffff, alpha: 0.9 });
   return app.renderer.generateTexture({ target: g, resolution: 3 });
 }
+// 첫 연쇄 때 글자 모양을 만드느라 한 번 튀지 않게, 쓰일 글자를 미리 한 번 그려 둔다
+const GLYPHS = '0123456789.+-−° 🎯🐝';
+function warmGlyphs(layer: Container) {
+  for (const style of [LABEL_STYLE, POPUP_STYLE]) {
+    const t = new BitmapText({ text: GLYPHS, style });
+    t.alpha = 0.001;
+    layer.addChild(t);
+    setTimeout(() => t.destroy(), 500);
+  }
+}
 const beeTex = makeBeeTex();
 const hornetTex = makeHornetTex();
 const glowTex = makeGlowTex();
@@ -138,6 +153,7 @@ const labelLayer = new Container();
 const dropLayer = new Container();
 world.addChild(bg, hive, glowLayer, hornetLayer, beeLayer, fxLayer, labelLayer);
 app.stage.addChild(world, dropLayer);
+warmGlyphs(labelLayer);
 
 // ── DOM HUD ──
 const $ = (id: string) => document.getElementById(id)!;
@@ -155,6 +171,7 @@ let honey = 0, shownHoney = 0, totalHoney = 0;
 let hiveHP = 100, hiveFlash = 0;
 let wave = 0, waveState: 'break' | 'spawn' | 'shop' = 'break', waveTimer = 1.2, toSpawn = 0, spawnT = 0;
 let chain = 0, maxChain = 0, kills = 0, lostBees = 0, waveLost = 0, waveHoney = 0;
+let lastStopAt = 0, chainShow = 0, beesHurt = false;
 let freeze = 0, trauma = 0, time = 0, beeSpawnT = 0, scoutT = 0, shopDelay = 0;
 let over = false;
 let inMenu = true; // 메뉴가 떠 있는 동안은 뒤에서 자동 조종 데모가 돈다 (상점·게임 오버 없음)
@@ -248,10 +265,7 @@ function addHornet(x: number, y: number, kind: Kind) {
   glow.anchor.set(0.5);
   glow.blendMode = 'add';
   glow.visible = false;
-  const label = new Text({
-    text: '',
-    style: { fontFamily: 'system-ui', fontSize: 15, fontWeight: '900', fill: 0xffffff, stroke: { color: 0x000000, width: 4 } },
-  });
+  const label = new BitmapText({ text: '', style: LABEL_STYLE });
   label.anchor.set(0.5);
   label.visible = false;
   hornetLayer.addChild(s);
@@ -259,7 +273,7 @@ function addHornet(x: number, y: number, kind: Kind) {
   labelLayer.addChild(label);
   s.tint = k.tint;
   hornets.push({
-    s, glow, label, kind, k, orbA: Math.atan2(y - cy, x - cx),
+    s, glow, label, labelT: 0, kind, k, orbA: Math.atan2(y - cy, x - cx),
     x, y, temp: BASE_TEMP, attached: 0, size, boss, alive: true,
     t: Math.random() * 10, speed: boss ? 38 : Math.min(140, 68 + wave * 2.5) * k.speed, atHive: false, killT: 0, stingT: 0.4,
     power: 0, marked: false, markAcc: 0, guardAcc: 0, waveT: 0, waveChain: 0,
@@ -350,11 +364,10 @@ function flash(x: number, y: number, size: number, life: number, tint: number) {
 }
 
 function popup(x: number, y: number, text: string, size: number, color: number) {
-  const t = new Text({
-    text,
-    style: { fontFamily: 'system-ui', fontSize: size, fontWeight: '900', fill: color, stroke: { color: 0x2a1000, width: 5 } },
-  });
+  const t = new BitmapText({ text, style: POPUP_STYLE });
   t.anchor.set(0.5);
+  t.tint = color;
+  t.scale.set(size / 26);
   t.position.set(x, y);
   labelLayer.addChild(t);
   popups.push({ t, life: 0.9, vy: -70 });
@@ -417,7 +430,12 @@ function cook(h: Hornet) {
   const gain = Math.round(h.k.honey * Math.min(3, 1 + 0.25 * (chain - 1)) * S.honeyMult());
   waveHoney += gain;
   const R = S.chainRadius(chain) * (h.boss ? 1.5 : 1);
-  freeze = h.boss ? 0.16 : 0.045 + Math.min(0.09, chain * 0.01);
+  // 히트스톱: 연쇄 중에 매번 멈추면 렉처럼 느껴진다. 연쇄 시작과 5의 배수 고비에만, 그것도 0.4초에 한 번. 여왕은 항상
+  const now = performance.now() / 1000;
+  if (h.boss || ((chain === 1 || chain % 5 === 0) && now - lastStopAt > 0.4)) {
+    freeze = h.boss ? 0.16 : 0.045 + Math.min(0.05, chain * 0.006);
+    lastStopAt = now;
+  }
   trauma = Math.min(1, trauma + (h.boss ? 0.9 : 0.3 + chain * 0.035));
 
   const k = h.boss ? 2 : h.kind === 'giant' ? 1.4 : 1;
@@ -464,13 +482,7 @@ function cook(h: Hornet) {
   // 풀려난 벌은 옆 말벌로 넘어감
   for (const b of bees) if (b.target === h && b.state >= 0) retarget(b, R);
 
-  if (chain >= 2) {
-    chainEl.textContent = chain >= 5 ? `${chain} CHAIN!!` : `${chain} CHAIN`;
-    chainEl.style.fontSize = `${Math.min(110, 38 + chain * 8)}px`;
-    chainEl.classList.remove('go');
-    void chainEl.offsetWidth;
-    chainEl.classList.add('go');
-  }
+  if (chain >= 2) chainShow = Math.max(chainShow, chain); // DOM은 프레임 끝에 한 번만 건드린다
   sfx.pop(chain, h.boss);
 }
 
@@ -501,9 +513,7 @@ function killBee(b: Bee, inBall = false) {
   lostBees++;
   waveLost++;
   sfx.sting();
-  beesEl.classList.remove('hurt');
-  void beesEl.offsetWidth;
-  beesEl.classList.add('hurt');
+  beesHurt = true;
 }
 
 // ── 웨이브 ──
@@ -748,9 +758,13 @@ function update(dt: number) {
     }
     h.label.visible = h.attached > 0 || frac > 0.1 || h.marked;
     if (h.label.visible) {
-      h.label.text = (h.marked ? '🎯 ' : '') + `${h.temp.toFixed(1)}°`;
+      h.labelT -= dt;
+      if (h.labelT <= 0) {
+        h.labelT = 0.1;
+        h.label.text = (h.marked ? '🎯 ' : '') + `${h.temp.toFixed(1)}°`;
+      }
       h.label.position.set(h.x, h.y - h.size - 22 - Math.sqrt(h.attached) * 1.5);
-      h.label.style.fill = frac > 0.8 ? 0xffffff : frac > 0.5 ? 0xffd040 : 0xffa060;
+      h.label.tint = frac > 0.8 ? 0xffffff : frac > 0.5 ? 0xffd040 : 0xffa060;
       h.label.scale.set(1 + frac * 0.35);
     }
   }
@@ -1147,6 +1161,18 @@ if (import.meta.env.DEV) {
     hornets: () => hornets.map(h => ({ x: h.x + world.x, y: h.y + world.y, temp: h.temp, attached: h.attached })),
     give: (n: number) => { honey += n; },
     spawn: (kind: Kind, x: number, y: number) => addHornet(x - world.x, y - world.y, kind),
+    prof: () => ({ ...prof }),
+    profReset: () => Object.assign(prof, { maxTickMs: 0, slowTicks: 0, frozen: 0, frames: 0 }),
+    // 연쇄 재현: 한 점 주변에 말벌 n마리를 촘촘히 깔고 거의 익은 상태로 만든 뒤 하나를 누른다
+    chainBench: (n: number) => {
+      const px = cx + 260, py = cy - 120;
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * 220;
+        addHornet(px + Math.cos(a) * r, py + Math.sin(a) * r, 'normal');
+      }
+      for (const h of hornets) { h.speed = 0; h.temp = rand(41, 45.5); }
+      for (const h of hornets.slice(0, 6)) dispatchTo(h, 80);
+    },
     slots: () => [...slots],
     shop: () => openShop(),
     eq: (id: string) => { equip(id as UpDef['id']); renderSlots(); },
@@ -1209,22 +1235,49 @@ function tick(dt: number) {
   updateDrops(dt);
 }
 
+const hudCache = { honey: '', bees: '', hp: '' };
+
+// 개발용 계측: 프레임마다 게임 로직 시간, 히트스톱으로 멈춘 시간
+const prof = { maxTickMs: 0, slowTicks: 0, frozen: 0, frames: 0 };
 app.ticker.add((tk) => {
   if (paused) return;
   const dt = Math.min(tk.deltaMS / 1000, 0.05);
+  const t0 = performance.now();
+  if (freeze > 0) prof.frozen += dt;
   tick(dt);
+  const ms = performance.now() - t0;
+  prof.frames++;
+  prof.maxTickMs = Math.max(prof.maxTickMs, ms);
+  if (ms > 8) prof.slowTicks++;
 
   trauma = Math.max(0, trauma - dt * 1.6);
   const sh = opts.shake ? trauma * trauma * (inMenu ? 6 : 18) : 0; // 메뉴 뒤에서는 살짝만
   world.x = rand(-sh, sh);
   world.y = rand(-sh, sh);
 
+  if (chainShow) {
+    chainEl.textContent = chainShow >= 5 ? `${chainShow} CHAIN!!` : `${chainShow} CHAIN`;
+    chainEl.style.fontSize = `${Math.min(110, 38 + chainShow * 8)}px`;
+    chainEl.classList.remove('go');
+    void chainEl.offsetWidth;
+    chainEl.classList.add('go');
+    chainShow = 0;
+  }
+  if (beesHurt) {
+    beesEl.classList.remove('hurt');
+    void beesEl.offsetWidth;
+    beesEl.classList.add('hurt');
+    beesHurt = false;
+  }
+
   hiveFlash = Math.max(0, hiveFlash - dt * 4);
   hive.tint = lerpColor(0xffffff, 0xff4020, hiveFlash);
 
   shownHoney += (honey - shownHoney) * Math.min(1, dt * 12);
   if (Math.abs(honey - shownHoney) < 0.5) shownHoney = honey;
-  honeyEl.textContent = fmt(shownHoney);
-  hpEl.style.width = `${Math.max(0, hiveHP / S.maxHP() * 100)}%`;
-  beesEl.textContent = `${fmt(bees.length)} / ${fmt(S.maxBees())}`;
+  // DOM 글자는 바뀔 때만 (toLocaleString과 textContent 갱신이 매 프레임이면 아깝다)
+  const hs = fmt(shownHoney), bs = `${fmt(bees.length)} / ${fmt(S.maxBees())}`, hp = `${Math.max(0, hiveHP / S.maxHP() * 100).toFixed(1)}%`;
+  if (hs !== hudCache.honey) honeyEl.textContent = hudCache.honey = hs;
+  if (bs !== hudCache.bees) beesEl.textContent = hudCache.bees = bs;
+  if (hp !== hudCache.hp) hpEl.style.width = hudCache.hp = hp;
 });

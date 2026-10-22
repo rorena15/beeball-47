@@ -110,8 +110,14 @@ export class Sfx {
   }
 
   /** 열구 성공. 연쇄가 길수록 반짝이 음이 올라간다 */
+  private lastPop = 0;
+
+  /** 말벌이 익음. 연쇄로 한꺼번에 터지면 25ms 안의 것은 하나로 합친다 (노드가 수십 개씩 쌓이지 않게) */
   pop(chain: number, boss: boolean) {
     if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    if (!boss && now - this.lastPop < 0.025) return;
+    this.lastPop = now;
     const k = boss ? 1.6 : 1;
     this.tone('sine', 160 / k, 38, 0.22 * k, 0.75);          // 쿵
     this.noiseBurst(0.09 * k, 'highpass', 1800, 0.35);       // 탁
