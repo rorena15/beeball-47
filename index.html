@@ -51,16 +51,46 @@
         <div class="logo">BEEBALL<span>47</span></div>
         <p class="tag">벌떼로 말벌을 감싸 47°C에 익혀라</p>
         <button id="start">시작</button>
+        <div class="menu-row">
+          <button id="open-codex" class="ghost">도감</button>
+          <button id="open-settings" class="ghost">설정</button>
+        </div>
         <p id="best"></p>
-        <div class="codex">
-          <div class="how">
-            <b>말벌을 눌러</b> 벌떼를 보낸다 · 벌이 공처럼 감싸 47°C가 되면 익는다<br>
-            익을 때 퍼지는 <b>열파</b>가 옆 말벌을 데운다 · 무리 한가운데를 노려 연쇄를 이어라
-          </div>
-          <div id="codex-list"></div>
+      </div>
+    </div>
+    <div id="codex" class="panel" hidden>
+      <div class="panel-box">
+        <h2>말벌 도감</h2>
+        <div class="how">
+          <b>말벌을 눌러</b> 벌떼를 보낸다 · 벌이 공처럼 감싸 47°C가 되면 익는다<br>
+          익을 때 퍼지는 <b>열파</b>가 옆 말벌을 데운다 · 무리 한가운데를 노려 연쇄를 이어라
+        </div>
+        <div id="codex-list"></div>
+        <div class="panel-row"><button class="close">닫기</button></div>
+      </div>
+    </div>
+    <div id="settings" class="panel" hidden>
+      <div class="panel-box">
+        <h2>설정</h2>
+        <label class="opt">효과음 볼륨<input id="opt-volume" type="range" min="0" max="100" step="5"><span id="opt-volume-v"></span></label>
+        <label class="opt">벌떼 웅웅 소리<input id="opt-buzz" type="checkbox"></label>
+        <label class="opt">화면 흔들림<input id="opt-shake" type="checkbox"></label>
+        <label class="opt">효과 줄이기<small>파티클·꿀 방울을 줄여 느린 기기에서 부드럽게</small><input id="opt-lite" type="checkbox"></label>
+        <label class="opt">메뉴 배경 데모<input id="opt-demo" type="checkbox"></label>
+        <div class="panel-row"><button class="close">닫기</button></div>
+      </div>
+    </div>
+    <div id="pause" class="panel" hidden>
+      <div class="panel-box">
+        <h2>일시정지</h2>
+        <div class="panel-col">
+          <button id="resume">계속</button>
+          <button id="pause-settings" class="ghost">설정</button>
+          <button id="pause-menu" class="ghost">메뉴로 (진행 포기)</button>
         </div>
       </div>
     </div>
+    <button id="gear" title="일시정지 (Esc)">⏸</button>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

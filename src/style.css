@@ -164,3 +164,38 @@ canvas { display: block; }
   .logo { font-size: 52px; }
   #banner { font-size: 38px; }
 }
+
+/* 메뉴 v2: 가운데를 비워 뒤 데모가 보이게 */
+#menu { background: linear-gradient(180deg, rgba(12, 7, 0, 0.72) 0, rgba(12, 7, 0, 0.12) 42%, rgba(12, 7, 0, 0.12) 70%, rgba(12, 7, 0, 0.55) 100%); align-items: flex-start; }
+.menu-box { margin-top: 9vh; }
+.menu-row { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
+button.ghost, .menu-row button {
+  font: inherit; font-size: 16px; font-weight: 800; padding: 8px 22px; border-radius: 8px; cursor: pointer;
+  background: rgba(20, 12, 2, 0.6); color: #ffe9b0; border: 2px solid #6b4310;
+}
+button.ghost:hover { border-color: #ffc21a; }
+body.in-menu #hud, body.in-menu #hud-r, body.in-menu #slots-hud, body.in-menu #banner, body.in-menu #chain, body.in-menu #gear, body.in-menu #hint { visibility: hidden; }
+
+/* 공용 창 (도감, 설정, 일시정지) */
+.panel { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; background: rgba(10, 5, 0, 0.7); padding: 16px; }
+.panel[hidden] { display: none; }
+.panel-box { width: 100%; max-width: 560px; max-height: 100%; overflow-y: auto; background: #241505; border: 2px solid #6b4310; border-radius: 14px; padding: 20px; }
+.panel-box h2 { text-align: center; color: #ffc21a; font-size: 24px; margin-bottom: 14px; }
+.panel-row { display: flex; justify-content: center; margin-top: 18px; }
+.panel-col { display: flex; flex-direction: column; gap: 10px; align-items: stretch; max-width: 280px; margin: 0 auto; }
+.panel button:not(.ghost) {
+  font: inherit; font-size: 17px; font-weight: 800; padding: 10px 28px; border-radius: 8px; border: 0; cursor: pointer;
+  background: #ffc21a; color: #2a1600;
+}
+#codex .how { font-size: 13px; line-height: 1.7; opacity: 0.85; text-align: center; }
+.opt { display: flex; align-items: center; gap: 12px; padding: 12px 4px; border-bottom: 1px solid rgba(107, 67, 16, 0.5); font-weight: 700; cursor: pointer; flex-wrap: wrap; }
+.opt small { display: block; flex-basis: 100%; order: 3; font-size: 12px; font-weight: 400; opacity: 0.6; margin-top: -4px; }
+.opt input[type=checkbox] { margin-left: auto; width: 22px; height: 22px; accent-color: #ffc21a; cursor: pointer; }
+.opt input[type=range] { margin-left: auto; width: 160px; accent-color: #ffc21a; }
+#opt-volume-v { width: 36px; text-align: right; font-variant-numeric: tabular-nums; opacity: 0.8; }
+
+#gear {
+  position: fixed; right: 16px; bottom: 16px; z-index: 6; width: 42px; height: 42px; border-radius: 50%;
+  border: 2px solid #6b4310; background: rgba(20, 12, 2, 0.7); color: #ffe9b0; font-size: 16px; cursor: pointer;
+}
+#gear:hover { border-color: #ffc21a; }

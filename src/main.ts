@@ -51,6 +51,19 @@ interface Drop { s: Sprite; x: number; y: number; vx: number; vy: number; age: n
 interface Popup { t: Text; life: number; vy: number; }
 
 const sfx = new Sfx();
+
+// ── 설정 (브라우저에만 저장, 못 읽으면 기본값) ──
+const SETTINGS_KEY = 'beeball47.settings';
+const opts = { volume: 80, buzz: true, shake: true, lite: false, demo: true };
+try { Object.assign(opts, JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}')); } catch { /* 기본값 */ }
+function applyOpts() {
+  sfx.volume = opts.volume / 100;
+  sfx.buzzOn = opts.buzz;
+  sfx.apply();
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(opts)); } catch { /* 저장 불가 */ }
+}
+applyOpts();
+
 const app = new Application();
 await app.init({
   resizeTo: window,
@@ -144,7 +157,8 @@ let wave = 0, waveState: 'break' | 'spawn' | 'shop' = 'break', waveTimer = 1.2, 
 let chain = 0, maxChain = 0, kills = 0, lostBees = 0, waveLost = 0, waveHoney = 0;
 let freeze = 0, trauma = 0, time = 0, beeSpawnT = 0, scoutT = 0, shopDelay = 0;
 let over = false;
-let inMenu = true; // 메뉴가 떠 있는 동안은 웨이브가 시작되지 않는다 (벌떼는 뒤에서 계속 돈다)
+let inMenu = true; // 메뉴가 떠 있는 동안은 뒤에서 자동 조종 데모가 돈다 (상점·게임 오버 없음)
+let paused = false, demoT = 0;
 let pattern: Pattern = 'scatter', rushAng = 0;
 let mustSpawn: Kind[] = []; // 이번 웨이브에 처음 나오는 종류는 반드시 한 번 등장
 let honeyTarget = { x: 40, y: 30 };
@@ -269,9 +283,13 @@ function pickKind(): Kind {
 }
 
 function spawnGroup() {
-  const R = Math.max(app.screen.width, app.screen.height) * 0.62 + 40;
+  // 출발 거리. 데모는 방향과 상관없이 화면 테두리 바로 바깥에서 나와 금방 보이게
+  const far = Math.max(app.screen.width, app.screen.height) * 0.62 + 40;
+  const Rof = (a: number) => inMenu
+    ? Math.min(Math.abs(app.screen.width / 2 / Math.cos(a)), Math.abs(app.screen.height / 2 / Math.sin(a))) + 30
+    : far;
   const at = (a: number, spread: number, kind: Kind) => {
-    const rr = R + rand(0, spread);
+    const rr = Rof(a) + rand(0, inMenu ? spread * 0.3 : spread);
     addHornet(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, kind);
   };
   let n: number;
@@ -287,7 +305,7 @@ function spawnGroup() {
     for (let i = 0; i < n; i++) {
       const a = ang + rand(-0.05, 0.05);
       const off = rand(0, 60), oa = Math.random() * Math.PI * 2;
-      addHornet(cx + Math.cos(a) * (R + 40) + Math.cos(oa) * off, cy + Math.sin(a) * (R + 40) + Math.sin(oa) * off, mustSpawn.length ? pickKind() : kind);
+      addHornet(cx + Math.cos(a) * (Rof(a) + 40) + Math.cos(oa) * off, cy + Math.sin(a) * (Rof(a) + 40) + Math.sin(oa) * off, mustSpawn.length ? pickKind() : kind);
     }
   } else {
     // 흩어짐 / 돌격(한쪽 방향으로만)
@@ -300,6 +318,7 @@ function spawnGroup() {
 }
 
 function burst(x: number, y: number, n: number, sp0: number, sp1: number, colors: number[], s0: number, s1: number, life: number) {
+  if (opts.lite) n = Math.ceil(n * 0.35);
   for (let i = 0; i < n; i++) {
     const s = new Sprite(glowTex);
     s.anchor.set(0.5);
@@ -408,7 +427,7 @@ function cook(h: Hornet) {
   popup(h.x, h.y - 18, `+${gain}`, chain >= 3 ? 26 : 20, 0xffd23a);
 
   // 꿀 방울
-  const nd = Math.min(46, 7 + chain * 2 + (h.boss ? 24 : 0));
+  const nd = Math.ceil(Math.min(46, 7 + chain * 2 + (h.boss ? 24 : 0)) * (opts.lite ? 0.35 : 1));
   for (let i = 0; i < nd; i++) {
     const s = new Sprite(dotTex);
     s.anchor.set(0.5);
@@ -526,20 +545,28 @@ function update(dt: number) {
 
   // 웨이브
   if (waveState === 'break') {
-    if (!inMenu) waveTimer -= dt;
+    if (!inMenu || opts.demo) waveTimer -= dt;
     if (waveTimer <= 0) startWave();
   } else if (waveState === 'spawn') {
     spawnT -= dt;
     if (toSpawn > 0 && spawnT <= 0) {
       spawnGroup();
       if (toSpawn > 0 && Math.random() < 0.35) spawnGroup(); // 다른 방향에서 동시에
-      spawnT = Math.max(0.3, 1.1 - wave * 0.08) * rand(0.6, 1.4);
+      spawnT = Math.max(0.3, 1.1 - wave * 0.08) * rand(0.6, 1.4) * (inMenu ? 0.6 : 1);
     }
-    if (toSpawn === 0 && hornets.every(h => !h.alive) && drops.length === 0) {
-      waveState = 'shop';
-      shopDelay = 0.5;
+    if (toSpawn === 0 && hornets.every(h => !h.alive) && (inMenu || drops.length === 0)) {
+      if (inMenu) {
+        // 데모는 상점 없이 바로 다음 웨이브. 너무 길어지면 앞쪽 웨이브로 되돌린다
+        waveState = 'break';
+        waveTimer = 0.3;
+        if (wave >= 12) wave = 2;
+      } else {
+        waveState = 'shop';
+        shopDelay = 0.5;
+      }
     }
   }
+  if (inMenu) demoPilot(dt);
 
   if (waveState === 'shop' && shopDelay > 0) {
     shopDelay -= dt;
@@ -754,7 +781,33 @@ function update(dt: number) {
   }
   popups = popups.filter(p => p.life > 0);
 
+  if (inMenu) hiveHP = Math.max(hiveHP, S.maxHP() * 0.4); // 데모 벌집은 무너지지 않는다
   if (hiveHP <= 0) gameOver();
+}
+
+// 메뉴 뒤 데모의 자동 조종: 화면 안에서 무리가 가장 빽빽한 말벌을 골라 연쇄를 노린다
+function demoPilot(dt: number) {
+  demoT -= dt;
+  if (demoT > 0) return;
+  demoT = rand(0.28, 0.55);
+  if (bees.filter(b => b.state === IDLE).length < 40) return;
+  const w = app.screen.width, ht = app.screen.height;
+  const incoming = new Map<Hornet, number>();
+  for (const b of bees) if (b.target && (b.state === FLY || b.state === BALL)) incoming.set(b.target, (incoming.get(b.target) ?? 0) + 1);
+  const hm = S.heatMult(honey);
+  let best: Hornet | null = null, bs = -Infinity;
+  for (const h of hornets) {
+    if (!h.alive || h.x < 110 || h.x > w - 110 || h.y < 90 || h.y > ht - 90) continue; // 날아 들어오는 모습이 보이게 조금 기다린다
+    const rate = (h.boss ? S.bossHeatPerBee() : S.heatPerBee()) * hm;
+    const eq = BASE_TEMP + (incoming.get(h) ?? 0) * rate / (S.cooling() * h.k.cool);
+    if (eq > 49) continue; // 이미 충분히 익는 중
+    let s = -Math.hypot(h.x - cx, h.y - cy) * 0.5;
+    for (const o of hornets) if (o !== h && o.alive && Math.hypot(o.x - h.x, o.y - h.y) < 150) s += 120;
+    if (s > bs) { bs = s; best = h; }
+  }
+  if (!best) return;
+  ring(best.x, best.y, 4, 30, 0.3, 0xffe08a); // 보이지 않는 손가락이 누른 자리
+  dispatchTo(best);
 }
 
 // 꿀 방울은 히트스톱 중에도 계속 날아간다
@@ -983,6 +1036,7 @@ function reset() {
   bees = []; hornets = []; particles = []; drops = []; popups = [];
   honey = shownHoney = totalHoney = 0;
   hiveHP = 100; wave = 0; colony.wave = 0; waveState = 'break'; waveTimer = 1.2; toSpawn = 0;
+  waveEl.textContent = 'WAVE 1';
   chain = maxChain = kills = lostBees = waveLost = waveHoney = 0;
   repairs = 0;
   freeze = trauma = scoutT = shopDelay = 0;
@@ -1007,21 +1061,85 @@ function showMenu() {
       `${locked ? '' : k.desc + '<br>'}<i>WAVE ${k.from}부터</i></div>`;
   }).join('');
   inMenu = true;
+  paused = false;
+  pauseEl.hidden = true;
   menuEl.hidden = false;
+  document.body.classList.add('in-menu');
   hintEl.style.opacity = '0';
+  sfx.muted = true;
+  sfx.apply();
+  startDemo();
+}
+// 데모: 연쇄 카드를 몇 장 쥐여 주고 3웨이브부터 화려하게 돌린다
+function startDemo() {
+  reset();
+  if (!opts.demo) return;
+  for (const id of ['wave', 'wave', 'wave', 'heat', 'heat', 'frenzy', 'window'] as UpDef['id'][]) equip(id);
+  wave = 2;
+  waveTimer = 0.4;
 }
 function startGame() {
   sfx.init();
   reset();
   inMenu = false;
   menuEl.hidden = true;
+  document.body.classList.remove('in-menu');
   hintEl.style.opacity = '';
+  sfx.muted = false;
+  sfx.apply();
 }
 $('start').addEventListener('click', startGame);
-$('to-menu').addEventListener('click', () => { reset(); showMenu(); });
-window.addEventListener('keydown', (e) => {
-  if (inMenu && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); startGame(); }
+$('to-menu').addEventListener('click', showMenu);
+
+// ── 창: 도감, 설정, 일시정지 ──
+const codexEl = $('codex'), settingsEl = $('settings'), pauseEl = $('pause');
+for (const el of [codexEl, settingsEl]) {
+  el.querySelector('.close')!.addEventListener('click', () => (el.hidden = true));
+  el.addEventListener('pointerdown', (e) => { if (e.target === el) el.hidden = true; }); // 바깥 누르면 닫기
+}
+$('open-codex').addEventListener('click', () => (codexEl.hidden = false));
+
+const optVol = $('opt-volume') as HTMLInputElement, optVolV = $('opt-volume-v');
+const optBuzz = $('opt-buzz') as HTMLInputElement, optShake = $('opt-shake') as HTMLInputElement;
+const optLite = $('opt-lite') as HTMLInputElement, optDemo = $('opt-demo') as HTMLInputElement;
+function openSettings() {
+  optVol.value = String(opts.volume); optVolV.textContent = String(opts.volume);
+  optBuzz.checked = opts.buzz; optShake.checked = opts.shake; optLite.checked = opts.lite; optDemo.checked = opts.demo;
+  settingsEl.hidden = false;
+}
+optVol.addEventListener('input', () => {
+  opts.volume = Number(optVol.value); optVolV.textContent = optVol.value;
+  applyOpts();
+  if (!inMenu) { sfx.init(); sfx.plink(); } // 크기 미리 듣기
 });
+optBuzz.addEventListener('change', () => { opts.buzz = optBuzz.checked; applyOpts(); });
+optShake.addEventListener('change', () => { opts.shake = optShake.checked; applyOpts(); });
+optLite.addEventListener('change', () => { opts.lite = optLite.checked; applyOpts(); });
+optDemo.addEventListener('change', () => { opts.demo = optDemo.checked; applyOpts(); if (inMenu) startDemo(); });
+$('open-settings').addEventListener('click', openSettings);
+$('pause-settings').addEventListener('click', openSettings);
+
+function setPaused(p: boolean) {
+  if (inMenu || over) p = false;
+  paused = p;
+  pauseEl.hidden = !p;
+  if (p) sfx.setBuzz(0, 0);
+}
+$('gear').addEventListener('click', () => setPaused(true));
+$('resume').addEventListener('click', () => setPaused(false));
+$('pause-menu').addEventListener('click', showMenu);
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (!settingsEl.hidden) settingsEl.hidden = true;
+    else if (!codexEl.hidden) codexEl.hidden = true;
+    else setPaused(!paused);
+    return;
+  }
+  if (inMenu && codexEl.hidden && settingsEl.hidden && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); startGame(); }
+});
+// 다른 탭으로 가면 자동 일시정지
+document.addEventListener('visibilitychange', () => { if (document.hidden) setPaused(true); });
 
 // 개발 중 자동 테스트용
 if (import.meta.env.DEV) {
@@ -1036,7 +1154,7 @@ if (import.meta.env.DEV) {
     // 밸런스 봇: 렌더링 없이 게임 시간을 직접 돌린다 (tools/balance.mjs)
     sim: {
       stop: () => app.ticker.stop(),
-      reset: () => { reset(); inMenu = false; menuEl.hidden = true; },
+      reset: () => { reset(); inMenu = false; menuEl.hidden = true; document.body.classList.remove('in-menu'); },
       tick: (dt: number) => tick(dt),
       state: () => ({
         wave, waveState, honey, hiveHP, maxHP: S.maxHP(), bees: bees.length,
@@ -1092,11 +1210,12 @@ function tick(dt: number) {
 }
 
 app.ticker.add((tk) => {
+  if (paused) return;
   const dt = Math.min(tk.deltaMS / 1000, 0.05);
   tick(dt);
 
   trauma = Math.max(0, trauma - dt * 1.6);
-  const sh = trauma * trauma * 18;
+  const sh = opts.shake ? trauma * trauma * (inMenu ? 6 : 18) : 0; // 메뉴 뒤에서는 살짝만
   world.x = rand(-sh, sh);
   world.y = rand(-sh, sh);
 
