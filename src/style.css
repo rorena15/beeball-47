@@ -340,3 +340,4 @@ body.shop-open #slots-hud, body.shop-open #gear, body.shop-open #hint { visibili
   .shop-head h2 { font-size: 20px; }
   .shop-row button { padding: 7px 14px; font-size: 14px; }
 }
+.card .lvl.over { color: #ffd54a; opacity: 1; font-weight: 800; }

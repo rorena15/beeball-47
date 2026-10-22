@@ -109,6 +109,13 @@ export const slots: UpId[] = [];
 
 export const byId = (id: UpId) => UPGRADES.find(u => u.id === id)!;
 
+// 한계 돌파: 여러 레벨로 오르는 카드는 원래 최대(max)의 두 배까지 올릴 수 있다. max를 넘은 레벨은 효과 절반
+const MAX_OF = Object.fromEntries(UPGRADES.map(u => [u.id, u.max])) as Record<UpId, number>;
+export const limit = (u: UpDef) => (u.max > 1 && !u.instant ? u.max * 2 : u.max);
+export const overcap = (u: UpDef) => lv[u.id] >= u.max && lv[u.id] < limit(u) && u.max > 1;
+/** 카드 효과에 쓰는 실효 레벨 */
+const e = (id: UpId) => Math.min(lv[id], MAX_OF[id]) + 0.5 * Math.max(0, lv[id] - MAX_OF[id]);
+
 export function resetUpgrades() {
   for (const k in lv) lv[k as UpId] = 0;
   slots.length = 0;
@@ -133,8 +140,10 @@ export function tagCount(tag: Tag) {
 /** 계열 보너스 켜짐 여부 (같은 계열 3장) */
 export const trait = (tag: Exclude<Tag, 'base'>) => tagCount(tag) >= 3;
 
+// 값은 원래 최대까지 레벨마다 ×1.6, 한계 돌파 구간은 ×1.3 (쌓인 꿀을 꾸준히 쓸 곳)
 export function cost(u: UpDef) {
-  return Math.round(BASE_COST[u.rarity] * Math.pow(1.6, lv[u.id]) * Math.pow(0.85, lv.merchant));
+  const l = lv[u.id];
+  return Math.round(BASE_COST[u.rarity] * Math.pow(1.6, Math.min(l, u.max)) * Math.pow(1.3, Math.max(0, l - u.max)) * Math.pow(0.85, e('merchant')));
 }
 
 /** 가중치 랜덤으로 서로 다른 카드 n장. 이미 장착한 계열은 더 잘 나온다 */
@@ -142,7 +151,7 @@ export function rollCards(n: number): UpDef[] {
   const weight = [62, 30, 8, 12]; // 비밀 카드는 상점 한 번에 3% 안팎
   const owned = new Set(slots.map(id => byId(id).tag));
   const w = (u: UpDef) => weight[u.rarity] * (u.tag !== 'base' && owned.has(u.tag) ? 1.8 : 1);
-  const pool = UPGRADES.filter(u => lv[u.id] < u.max && !(u.instant && extra.slots >= MAX_EXTRA));
+  const pool = UPGRADES.filter(u => lv[u.id] < limit(u) && !(u.instant && extra.slots >= MAX_EXTRA));
   const out: UpDef[] = [];
   while (out.length < n && pool.length) {
     const total = pool.reduce((s, u) => s + w(u), 0);
@@ -167,41 +176,41 @@ export const PACE = 1.6;
 // 카드가 반영된 수치. honey가 필요한 건 인자로 받는다
 export const S = {
   heatMult: (honey: number) =>
-    (1 + 0.15 * lv.heat) * (lv.elite ? 1.7 : 1) * (lv.berserk ? 1.4 : 1) *
-    (1 + Math.min(0.6, Math.floor(honey / 100) * 0.04 * lv.jelly)),
+    (1 + 0.15 * e('heat')) * (lv.elite ? 1.7 : 1) * (lv.berserk ? 1.4 : 1) *
+    (1 + Math.min(0.3 * e('jelly'), Math.floor(honey / 100) * 0.04 * e('jelly'))),
   heatPerBee: () => 0.11 * PACE,
   bossHeatPerBee: () => 0.06 * PACE,
-  vetMult: (vet: number) => (lv.veteran ? 1 + 0.2 * vet * (1 + 0.3 * (lv.veteran - 1)) : 1),
+  vetMult: (vet: number) => (lv.veteran ? 1 + 0.2 * vet * (1 + 0.3 * (e('veteran') - 1)) : 1),
   autoMult: () => (lv.alarm ? 1.6 : 1),
-  cooling: () => 0.4 * PACE * Math.pow(0.88, lv.insul),
-  sendCount: () => Math.round((60 + 20 * lv.send) * (lv.elite ? 0.5 : 1)),
-  broodRate: () => tune.brood * (1 + 0.35 * lv.brood) * (1 + 0.08 * colony.wave),
-  maxBees: () => 600 + 140 * lv.cap + 45 * colony.wave,
-  beeSpeed: () => 560 * (1 + 0.18 * lv.wing) * (trait('elite') ? 1.4 : 1),
-  honeyMult: () => 1 + 0.25 * lv.honey,
+  cooling: () => 0.4 * PACE * Math.pow(0.88, e('insul')),
+  sendCount: () => Math.round((60 + 20 * e('send')) * (lv.elite ? 0.5 : 1)),
+  broodRate: () => tune.brood * (1 + 0.35 * e('brood')) * (1 + 0.08 * colony.wave),
+  maxBees: () => 600 + 140 * e('cap') + 45 * colony.wave,
+  beeSpeed: () => 560 * (1 + 0.18 * e('wing')) * (trait('elite') ? 1.4 : 1),
+  honeyMult: () => 1 + 0.25 * e('honey'),
   stingKills: (attached: number) => attached * (lv.berserk ? 0.07 : 0.035),
-  stingKillChance: () => 0.85 * Math.pow(0.8, lv.tough) * (trait('elite') ? 0.7 : 1),
-  overheatRate: () => 0.07 * Math.pow(0.65, lv.resist),
+  stingKillChance: () => 0.85 * Math.pow(0.8, e('tough')) * (trait('elite') ? 0.7 : 1),
+  overheatRate: () => 0.07 * Math.pow(0.65, e('resist')),
   // 연쇄가 이어질수록 열파가 ×0.8씩 약해진다 (연쇄 폭주는 3연쇄부터 감쇠 무시)
   chainHeat: (chain: number) => {
     const frenzy = lv.frenzy && chain >= 3;
     const decay = frenzy ? 1 : Math.pow(0.85, chain - 1);
-    return (6 + 2 * lv.wave + (trait('chain') ? 2 : 0)) * decay * (frenzy ? 1.6 : 1);
+    return (6 + 2 * e('wave') + (trait('chain') ? 2 : 0)) * decay * (frenzy ? 1.6 : 1);
   },
-  chainRadius: (chain: number) => 180 * (1 + 0.08 * lv.wave) * (lv.frenzy && chain >= 3 ? 1.3 : 1),
-  chainWindow: () => 1.3 + 0.3 * lv.window,
-  martyrHeat: () => 0.15 * lv.martyr,
+  chainRadius: (chain: number) => 180 * (1 + 0.08 * e('wave')) * (lv.frenzy && chain >= 3 ? 1.3 : 1),
+  chainWindow: () => 1.3 + 0.3 * e('window'),
+  martyrHeat: () => 0.15 * e('martyr'),
   sacHeatPerDead: () => (trait('sac') ? 0.3 : 0),
-  deathHoney: () => 0.05 * lv.mhoney,
-  phoenixChance: () => 0.2 * lv.phoenix,
-  maxHP: () => 100 + 25 * lv.armor,
+  deathHoney: () => 0.05 * e('mhoney'),
+  phoenixChance: () => 0.2 * e('phoenix'),
+  maxHP: () => 100 + 25 * e('armor'),
   hiveDamageMult: () => (trait('fort') ? 0.5 : 1),
-  spikyHeat: () => 4 * PACE * lv.spiky,
-  guardRate: () => 30 * lv.guard,
-  scoutInterval: () => (lv.scout ? 3 / (1 + 0.35 * (lv.scout - 1)) * (trait('auto') ? 0.6 : 1) : 0),
+  spikyHeat: () => 4 * PACE * e('spiky'),
+  guardRate: () => 30 * e('guard'),
+  scoutInterval: () => (lv.scout ? 3 / (1 + 0.35 * (e('scout') - 1)) * (trait('auto') ? 0.6 : 1) : 0),
   scoutCount: () => Math.round(S.sendCount() * 0.4),
-  markRate: () => S.sendCount() * 0.5 * lv.mark * (trait('auto') ? 1.4 : 1),
-  interest: (honey: number) => (lv.interest ? Math.min(40 * lv.interest, Math.floor(honey * 0.1 * lv.interest)) : 0),
+  markRate: () => S.sendCount() * 0.5 * e('mark') * (trait('auto') ? 1.4 : 1),
+  interest: (honey: number) => (lv.interest ? Math.min(40 * e('interest'), Math.floor(honey * 0.1 * e('interest'))) : 0),
   waveBonus: () => (trait('econ') ? 30 : 0),
   freeReroll: () => lv.merchant > 0,
 };

@@ -1,6 +1,6 @@
 import { Application, BitmapText, Container, Graphics, Sprite, Texture, type TextStyleOptions } from 'pixi.js';
 import { Sfx } from './audio';
-import { MAX_EXTRA, MAX_SLOTS, PACE, S, TAGS, tune, extra, maxSlots, colony, byId, cost, equip, lv, resetUpgrades, rollCards, slots, tagCount, trait, unequip, type UpDef } from './upgrades';
+import { MAX_EXTRA, MAX_SLOTS, PACE, S, TAGS, overcap, tune, extra, maxSlots, colony, byId, cost, equip, lv, resetUpgrades, rollCards, slots, tagCount, trait, unequip, type UpDef } from './upgrades';
 import { LANGS, detectLang, lang, setLang, t, type Key, type Lang } from './i18n';
 import './style.css';
 
@@ -1023,11 +1023,13 @@ function renderShop() {
     const owned = slots.includes(u.id);
     const el = document.createElement('div');
     el.className = `card r${u.rarity}` + (sold.has(i) ? ' sold' : honey < c ? ' poor' : '') + (pending === i ? ' chosen' : '');
-    const tag = u.instant ? t('card.secret') : owned ? t('card.owned', { a: lv[u.id], b: lv[u.id] + 1 }) : full ? t('card.full') : t('card.new');
+    const tag = u.instant ? t('card.secret')
+      : owned ? t(overcap(u) ? 'card.over' : 'card.owned', { a: lv[u.id], b: lv[u.id] + 1 })
+      : full ? t('card.full') : t('card.new');
     el.innerHTML =
       `<div class="rar">${rar[u.rarity]}${u.instant ? '' : ' · ' + (u.tag === 'base' ? t('card.base') : TAGS[u.tag].icon + ' ' + TAGS[u.tag].name)}</div><div class="icon">${u.icon}</div>` +
       `<div class="name">${u.name}</div><div class="desc">${u.desc}</div>` +
-      `<div class="lvl${!owned && full && !u.instant ? ' warn' : ''}">${tag}</div><div class="price">🍯 ${c}</div>`;
+      `<div class="lvl${!owned && full && !u.instant ? ' warn' : ''}${owned && overcap(u) ? ' over' : ''}">${tag}</div><div class="price">🍯 ${c}</div>`;
     el.addEventListener('click', () => buy(i));
     cardsEl.appendChild(el);
   });
@@ -1062,7 +1064,7 @@ function buy(i: number) {
   }
   honey -= c;
   equip(u.id);
-  if (u.id === 'armor') hiveHP += 25;
+  if (u.id === 'armor') hiveHP = Math.min(S.maxHP(), hiveHP + 25);
   finishBuy(i);
 }
 
