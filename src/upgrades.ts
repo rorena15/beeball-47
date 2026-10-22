@@ -1,5 +1,6 @@
 // 웨이브 사이 상점에서 꿀로 사는 카드. 장착 슬롯에 있는 카드만 효과가 있다.
 // 같은 계열(tag) 카드를 3장 장착하면 계열 보너스가 켜진다.
+import { t, type Key } from './i18n';
 
 export type Tag = 'base' | 'chain' | 'sac' | 'elite' | 'econ' | 'fort' | 'auto';
 
@@ -12,69 +13,80 @@ export type UpId =
   | 'armor' | 'spiky' | 'guard'
   | 'scout' | 'mark' | 'alarm';
 
+// 이름·설명 글자는 i18n.ts 사전에 있다 (up.<id>.name / .desc). 여기서는 읽기 전용 속성으로 붙인다
 export interface UpDef {
   id: UpId;
   tag: Tag;
   icon: string;
-  name: string;
-  desc: string;
+  readonly name: string;
+  readonly desc: string;
   rarity: 0 | 1 | 2; // 일반 / 희귀 / 전설
   max: number;
 }
 
-export const TAGS: Record<Exclude<Tag, 'base'>, { icon: string; name: string; bonus: string }> = {
-  chain: { icon: '🔗', name: '연쇄', bonus: '열파 +2°C' },
-  sac: { icon: '🕯️', name: '희생', bonus: '과열사한 벌 1마리당 열파 +0.3°C' },
-  elite: { icon: '⚔️', name: '정예', bonus: '비행 속도 +40%, 독침 사망 −30%' },
-  econ: { icon: '💰', name: '경제', bonus: '웨이브마다 꿀 +30' },
-  fort: { icon: '🏰', name: '요새', bonus: '벌집 피해 −50%' },
-  auto: { icon: '🤖', name: '자동', bonus: '자동 출격 간격 −40%' },
+// 이름 같은 글자는 현재 언어로 그때그때 읽는다
+const tag = (id: string, icon: string) => ({
+  icon,
+  get name() { return t(`tag.${id}.name` as Key); },
+  get bonus() { return t(`tag.${id}.bonus` as Key); },
+});
+export const TAGS = {
+  chain: tag('chain', '🔗'),
+  sac: tag('sac', '🕯️'),
+  elite: tag('elite', '⚔️'),
+  econ: tag('econ', '💰'),
+  fort: tag('fort', '🏰'),
+  auto: tag('auto', '🤖'),
 };
 
-export const UPGRADES: UpDef[] = [
+export const UPGRADES: UpDef[] = ([
   // 기본: 계열 없음
-  { id: 'heat', tag: 'base', icon: '🔥', name: '날갯짓 발열', desc: '벌 한 마리당 발열 +15%', rarity: 0, max: 8 },
-  { id: 'send', tag: 'base', icon: '🐝', name: '출격 규모', desc: '한 번에 보내는 벌 +20마리', rarity: 0, max: 8 },
-  { id: 'brood', tag: 'base', icon: '🥚', name: '육아벌', desc: '벌 번식 속도 +35%', rarity: 0, max: 8 },
-  { id: 'cap', tag: 'base', icon: '🏠', name: '벌방 증설', desc: '최대 벌 수 +140', rarity: 0, max: 8 },
-  { id: 'wing', tag: 'base', icon: '💨', name: '날개 근육', desc: '벌 비행 속도 +18%', rarity: 0, max: 5 },
-  { id: 'insul', tag: 'base', icon: '🧱', name: '밀랍 단열', desc: '공이 식는 속도 −12%', rarity: 0, max: 5 },
+  { id: 'heat', tag: 'base', icon: '🔥', rarity: 0, max: 8 },
+  { id: 'send', tag: 'base', icon: '🐝', rarity: 0, max: 8 },
+  { id: 'brood', tag: 'base', icon: '🥚', rarity: 0, max: 8 },
+  { id: 'cap', tag: 'base', icon: '🏠', rarity: 0, max: 8 },
+  { id: 'wing', tag: 'base', icon: '💨', rarity: 0, max: 5 },
+  { id: 'insul', tag: 'base', icon: '🧱', rarity: 0, max: 5 },
 
   // 연쇄: 하나 익혀서 무리 전체를 터뜨린다
-  { id: 'wave', tag: 'chain', icon: '♨️', name: '열파 증폭', desc: '열파 +2°C, 범위 +8%', rarity: 0, max: 6 },
-  { id: 'window', tag: 'chain', icon: '⛓️', name: '연쇄 페로몬', desc: '연쇄 유지 시간 +0.3초', rarity: 0, max: 5 },
-  { id: 'fuse', tag: 'chain', icon: '🧨', name: '도화선', desc: '연쇄가 끊겨도 0이 아니라 절반에서 다시 시작', rarity: 1, max: 1 },
-  { id: 'frenzy', tag: 'chain', icon: '🌋', name: '연쇄 폭주', desc: '3연쇄부터 열파 1.6배, 범위 +30%, 연쇄 감쇠 없음', rarity: 2, max: 1 },
+  { id: 'wave', tag: 'chain', icon: '♨️', rarity: 0, max: 6 },
+  { id: 'window', tag: 'chain', icon: '⛓️', rarity: 0, max: 5 },
+  { id: 'fuse', tag: 'chain', icon: '🧨', rarity: 1, max: 1 },
+  { id: 'frenzy', tag: 'chain', icon: '🌋', rarity: 2, max: 1 },
 
   // 희생: 벌을 소모품처럼 갈아 넣는다
-  { id: 'martyr', tag: 'sac', icon: '🩸', name: '희생 발열', desc: '공 안에서 벌이 죽을 때마다 +0.15°C', rarity: 1, max: 3 },
-  { id: 'mhoney', tag: 'sac', icon: '⚱️', name: '순교자의 꿀', desc: '벌이 죽을 때마다 꿀 +0.05', rarity: 0, max: 4 },
-  { id: 'berserk', tag: 'sac', icon: '😡', name: '광란', desc: '독침에 죽는 벌 2배, 대신 발열 +40%', rarity: 1, max: 1 },
-  { id: 'phoenix', tag: 'sac', icon: '🐦‍🔥', name: '불사조', desc: '공 안에서 죽은 벌의 20%가 벌집에서 즉시 부화', rarity: 2, max: 2 },
+  { id: 'martyr', tag: 'sac', icon: '🩸', rarity: 1, max: 3 },
+  { id: 'mhoney', tag: 'sac', icon: '⚱️', rarity: 0, max: 4 },
+  { id: 'berserk', tag: 'sac', icon: '😡', rarity: 1, max: 1 },
+  { id: 'phoenix', tag: 'sac', icon: '🐦‍🔥', rarity: 2, max: 2 },
 
   // 정예: 적게 보내고 오래 살린다
-  { id: 'elite', tag: 'elite', icon: '🎖️', name: '정예 소대', desc: '출격 수 절반, 벌 한 마리 발열 1.7배', rarity: 1, max: 1 },
-  { id: 'veteran', tag: 'elite', icon: '⭐', name: '베테랑', desc: '열구에서 살아남은 벌은 발열 +20% (3번까지 중첩)', rarity: 1, max: 2 },
-  { id: 'tough', tag: 'elite', icon: '🛡️', name: '단단한 외골격', desc: '독침에 죽을 확률 −20%', rarity: 0, max: 5 },
-  { id: 'resist', tag: 'elite', icon: '🌡️', name: '열 내성', desc: '열구 성공 시 과열사 −35%', rarity: 0, max: 4 },
-  { id: 'royal', tag: 'elite', icon: '👑', name: '근위대', desc: '베테랑 벌은 독침에 죽지 않음', rarity: 2, max: 1 },
+  { id: 'elite', tag: 'elite', icon: '🎖️', rarity: 1, max: 1 },
+  { id: 'veteran', tag: 'elite', icon: '⭐', rarity: 1, max: 2 },
+  { id: 'tough', tag: 'elite', icon: '🛡️', rarity: 0, max: 5 },
+  { id: 'resist', tag: 'elite', icon: '🌡️', rarity: 0, max: 4 },
+  { id: 'royal', tag: 'elite', icon: '👑', rarity: 2, max: 1 },
 
   // 경제: 꿀을 쌓아 힘으로 바꾼다
-  { id: 'honey', tag: 'econ', icon: '🍯', name: '꿀 감별', desc: '꿀 획득 +25%', rarity: 0, max: 6 },
-  { id: 'interest', tag: 'econ', icon: '🏦', name: '꿀 저장고', desc: '웨이브마다 보유 꿀의 10% 이자 (최대 +40)', rarity: 1, max: 3 },
-  { id: 'jelly', tag: 'econ', icon: '🫙', name: '로열젤리', desc: '보유 꿀 100마다 발열 +4% (최대 +60%)', rarity: 1, max: 2 },
-  { id: 'merchant', tag: 'econ', icon: '🪙', name: '밀랍 상인', desc: '카드 값 −15%, 상점마다 첫 새로고침 무료', rarity: 0, max: 2 },
+  { id: 'honey', tag: 'econ', icon: '🍯', rarity: 0, max: 6 },
+  { id: 'interest', tag: 'econ', icon: '🏦', rarity: 1, max: 3 },
+  { id: 'jelly', tag: 'econ', icon: '🫙', rarity: 1, max: 2 },
+  { id: 'merchant', tag: 'econ', icon: '🪙', rarity: 0, max: 2 },
 
   // 요새: 벌집까지 끌어들여 잡는다
-  { id: 'armor', tag: 'fort', icon: '🏯', name: '밀랍 성벽', desc: '벌집 최대 체력 +25 (즉시 채움)', rarity: 0, max: 6 },
-  { id: 'spiky', tag: 'fort', icon: '🌵', name: '가시 벌집', desc: '벌집에 붙은 말벌은 초당 +4°C', rarity: 1, max: 3 },
-  { id: 'guard', tag: 'fort', icon: '💂', name: '문지기', desc: '벌집에 붙은 말벌에게 대기 벌이 자동으로 달려듦', rarity: 1, max: 3 },
+  { id: 'armor', tag: 'fort', icon: '🏯', rarity: 0, max: 6 },
+  { id: 'spiky', tag: 'fort', icon: '🌵', rarity: 1, max: 3 },
+  { id: 'guard', tag: 'fort', icon: '💂', rarity: 1, max: 3 },
 
   // 자동: 덜 클릭하고 벌이 알아서 싸운다
-  { id: 'scout', tag: 'auto', icon: '🔭', name: '정찰벌', desc: '3초마다 벌집에 가장 가까운 말벌에 자동 출격', rarity: 1, max: 3 },
-  { id: 'mark', tag: 'auto', icon: '🎯', name: '페로몬 표식', desc: '클릭한 말벌이 익을 때까지 벌이 계속 흘러감', rarity: 1, max: 2 },
-  { id: 'alarm', tag: 'auto', icon: '🚨', name: '경보 페로몬', desc: '자동으로 출격한 벌의 발열 +60%', rarity: 2, max: 1 },
-];
+  { id: 'scout', tag: 'auto', icon: '🔭', rarity: 1, max: 3 },
+  { id: 'mark', tag: 'auto', icon: '🎯', rarity: 1, max: 2 },
+  { id: 'alarm', tag: 'auto', icon: '🚨', rarity: 2, max: 1 },
+] as Omit<UpDef, 'name' | 'desc'>[]).map(u => ({
+  ...u,
+  get name() { return t(`up.${u.id}.name` as Key); },
+  get desc() { return t(`up.${u.id}.desc` as Key); },
+}));
 
 const BASE_COST = [60, 130, 280];
 

@@ -1,6 +1,7 @@
 import { Application, BitmapText, Container, Graphics, Sprite, Texture, type TextStyleOptions } from 'pixi.js';
 import { Sfx } from './audio';
 import { MAX_SLOTS, S, TAGS, colony, byId, cost, equip, lv, resetUpgrades, rollCards, slots, tagCount, trait, unequip, type UpDef } from './upgrades';
+import { LANGS, detectLang, lang, setLang, t, type Key, type Lang } from './i18n';
 import './style.css';
 
 // ── 수치 (HEAT_BALL_TEMP는 Beecurity configs/constants.py의 HEAT_BALLING_TEMP_THRESHOLD) ──
@@ -14,21 +15,27 @@ const IDLE = 0, FLY = 1, BALL = 2;
 // ── 말벌 종류 ── from: 처음 나오는 웨이브. cool: 식는 속도 배수(클수록 잘 안 익음), sting: 독침 배수, dmg: 벌집 초당 피해
 type Kind = 'normal' | 'dart' | 'giant' | 'hunter' | 'queen';
 interface KindDef {
-  name: string; desc: string; from: number; size: number; speed: number;
+  readonly name: string; readonly desc: string; from: number; size: number; speed: number;
   cool: number; sting: number; honey: number; dmg: number; tint: number;
 }
-const KINDS: Record<Kind, KindDef> = {
-  normal: { name: '말벌', desc: '벌집으로 곧장 날아온다', from: 1, size: 13, speed: 1, cool: 1, sting: 1, honey: 5, dmg: 4, tint: 0xffffff },
-  dart: { name: '돌격말벌', desc: '작고 두 배 빠르다. 먼저 끊어라', from: 2, size: 9, speed: 2.1, cool: 1, sting: 0.7, honey: 4, dmg: 5, tint: 0xff5a48 },
-  giant: { name: '장수말벌', desc: '느리지만 잘 안 익고 독침이 세다. 꿀이 많다', from: 3, size: 20, speed: 0.55, cool: 1.9, sting: 1.6, honey: 22, dmg: 8, tint: 0xa85a18 },
-  hunter: { name: '사냥말벌', desc: '벌집 대신 쉬고 있는 벌을 낚아챈다', from: 4, size: 12, speed: 1.3, cool: 1.1, sting: 1, honey: 14, dmg: 0, tint: 0xa878ff },
-  queen: { name: '여왕말벌', desc: '5웨이브마다. 거대하고 아주 오래 버틴다', from: 5, size: 26, speed: 1, cool: 1, sting: 1, honey: 60, dmg: 9, tint: 0xffffff },
+const KINDS_RAW: Record<Kind, Omit<KindDef, 'name' | 'desc'>> = {
+  normal: { from: 1, size: 13, speed: 1, cool: 1, sting: 1, honey: 5, dmg: 4, tint: 0xffffff },
+  dart: { from: 2, size: 9, speed: 2.1, cool: 1, sting: 0.7, honey: 4, dmg: 5, tint: 0xff5a48 },
+  giant: { from: 3, size: 20, speed: 0.55, cool: 1.9, sting: 1.6, honey: 22, dmg: 8, tint: 0xa85a18 },
+  hunter: { from: 4, size: 12, speed: 1.3, cool: 1.1, sting: 1, honey: 14, dmg: 0, tint: 0xa878ff },
+  queen: { from: 5, size: 26, speed: 1, cool: 1, sting: 1, honey: 60, dmg: 9, tint: 0xffffff },
 };
+// 이름·설명은 i18n 사전 (foe.<kind>.name / .desc)
+const KINDS = Object.fromEntries(Object.entries(KINDS_RAW).map(([id, k]) => [id, {
+  ...k,
+  get name() { return t(`foe.${id}.name` as Key); },
+  get desc() { return t(`foe.${id}.desc` as Key); },
+}])) as Record<Kind, KindDef>;
 const KIND_ORDER: Kind[] = ['normal', 'dart', 'giant', 'hunter', 'queen'];
 
 // ── 웨이브 등장 패턴 ──
 type Pattern = 'scatter' | 'rush' | 'surround' | 'swarm';
-const PATTERN_NAME: Record<Pattern, string> = { scatter: '', rush: '돌격', surround: '포위', swarm: '편대' };
+const patternName = (p: Pattern) => (p === 'scatter' ? '' : t(`pattern.${p}`));
 
 interface Hornet {
   s: Sprite; glow: Sprite; label: BitmapText; labelT: number; kind: Kind; k: KindDef; orbA: number;
@@ -59,7 +66,7 @@ const sfx = new Sfx();
 
 // ── 설정 (브라우저에만 저장, 못 읽으면 기본값) ──
 const SETTINGS_KEY = 'beeball47.settings';
-const opts = { volume: 80, music: 60, buzz: true, shake: true, lite: false, demo: true };
+const opts = { lang: '' as string, volume: 80, music: 60, buzz: true, shake: true, lite: false, demo: true };
 try { Object.assign(opts, JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}')); } catch { /* 기본값 */ }
 function applyOpts() {
   sfx.volume = opts.volume / 100;
@@ -68,6 +75,7 @@ function applyOpts() {
   sfx.apply();
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(opts)); } catch { /* 저장 불가 */ }
 }
+setLang(detectLang(opts.lang));
 applyOpts();
 
 // 브라우저는 사용자 입력 전에는 소리를 못 낸다. 아무 데나 처음 누르면 오디오(배경음악 포함)를 켠다
@@ -542,8 +550,8 @@ function startWave() {
   mustSpawn = [...fresh];
 
   waveEl.textContent = `WAVE ${wave}`;
-  const sub = boss ? '여왕말벌' : PATTERN_NAME[pattern];
-  const intro = fresh.map(k => `새 적 · ${KINDS[k].name}: ${KINDS[k].desc}`).join('<br>');
+  const sub = boss ? KINDS.queen.name : patternName(pattern);
+  const intro = fresh.map(k => t('wave.bannerNew', { name: KINDS[k].name, desc: KINDS[k].desc })).join('<br>');
   bannerEl.innerHTML = `WAVE ${wave}${sub ? ` · ${sub}` : ''}` + (intro ? `<small>${intro}</small>` : '');
   bannerEl.classList.remove('go');
   void bannerEl.offsetWidth;
@@ -890,9 +898,9 @@ function gameOver() {
   over = true;
   sfx.setBuzz(0, 0);
   const { prev } = saveBest();
-  const record = wave > prev.wave ? '<br><b style="color:#ffc21a">최고 기록!</b>' : '';
+  const record = wave > prev.wave ? `<br><b style="color:#ffc21a">${t('over.record')}</b>` : '';
   $('over-stats').innerHTML =
-    `WAVE ${wave} 도달${record}<br>익힌 말벌 ${kills}마리 · 최대 연쇄 ${maxChain}<br>모은 꿀 ${fmt(totalHoney)} · 잃은 벌 ${fmt(lostBees)}마리`;
+    t('over.stats', { wave, record, kills, chain: maxChain, honey: fmt(totalHoney), lost: fmt(lostBees) });
   overEl.hidden = false;
   shopEl.hidden = true;
 }
@@ -910,9 +918,8 @@ function openShop() {
   if (over) return;
   const bonus = S.interest(honey) + S.waveBonus();
   honey += bonus;
-  $('shop-title').textContent = `WAVE ${wave} 방어 성공`;
-  $('shop-sub').innerHTML =
-    `꿀 +${fmt(waveHoney)} · 잃은 벌 ${waveLost}마리` + (bonus ? ` · 이자 +${bonus}` : '');
+  shopHead = { honey: waveHoney, lost: waveLost, bonus };
+  renderShopHead();
   waveHoney = 0; waveLost = 0; rerolls = 0; freeUsed = false; pending = null;
   shopCards = rollCards(3);
   sold = new Set();
@@ -923,6 +930,14 @@ function openShop() {
 // rerolls는 유료 횟수만 센다. 상점 안에서 상인을 사도 바로 무료 1회가 생긴다
 function rerollCost() { return S.freeReroll() && !freeUsed ? 0 : 10 + rerolls * 6; }
 function repairCost() { return 40 + repairs * 20; }
+
+// 상점 제목·부제 (언어를 바꾸면 다시 그릴 수 있게 숫자만 기억)
+let shopHead = { honey: 0, lost: 0, bonus: 0 };
+function renderShopHead() {
+  $('shop-title').textContent = t('shop.title', { n: wave });
+  $('shop-sub').innerHTML = t('shop.sub', { honey: fmt(shopHead.honey), lost: shopHead.lost }) +
+    (shopHead.bonus ? t('shop.interest', { n: shopHead.bonus }) : '');
+}
 
 function renderSlots() {
   const cells: string[] = [];
@@ -943,18 +958,18 @@ function renderSlots() {
 // 계열 현황: 장착 중인 계열만, 3장이면 보너스 켜짐
 function renderTraits() {
   const html: string[] = [];
-  for (const [tag, t] of Object.entries(TAGS) as [keyof typeof TAGS, (typeof TAGS)[keyof typeof TAGS]][]) {
+  for (const [tag, tg] of Object.entries(TAGS) as [keyof typeof TAGS, (typeof TAGS)[keyof typeof TAGS]][]) {
     const n = tagCount(tag);
     if (n === 0) continue;
     const on = n >= 3;
-    html.push(`<div class="trait${on ? ' on' : ''}">${t.icon} ${t.name} ${Math.min(n, 3)}/3` +
-      `<span>${on ? t.bonus : '3장: ' + t.bonus}</span></div>`);
+    html.push(`<div class="trait${on ? ' on' : ''}">${tg.icon} ${tg.name} ${Math.min(n, 3)}/3` +
+      `<span>${on ? tg.bonus : t('trait.need', { bonus: tg.bonus })}</span></div>`);
   }
   traitsEl.innerHTML = html.join('');
 }
 
 function renderShop() {
-  const rar = ['일반', '희귀', '전설'];
+  const rar = [t('rarity.0'), t('rarity.1'), t('rarity.2')];
   const full = slots.length >= MAX_SLOTS;
   cardsEl.innerHTML = '';
   shopCards.forEach((u, i) => {
@@ -962,23 +977,23 @@ function renderShop() {
     const owned = slots.includes(u.id);
     const el = document.createElement('div');
     el.className = `card r${u.rarity}` + (sold.has(i) ? ' sold' : honey < c ? ' poor' : '') + (pending === i ? ' chosen' : '');
-    const tag = owned ? `Lv ${lv[u.id]} → ${lv[u.id] + 1}` : full ? '슬롯 가득 · 교체 필요' : '새 카드';
+    const tag = owned ? t('card.owned', { a: lv[u.id], b: lv[u.id] + 1 }) : full ? t('card.full') : t('card.new');
     el.innerHTML =
-      `<div class="rar">${rar[u.rarity]} · ${u.tag === 'base' ? '기본' : TAGS[u.tag].icon + ' ' + TAGS[u.tag].name}</div><div class="icon">${u.icon}</div>` +
+      `<div class="rar">${rar[u.rarity]} · ${u.tag === 'base' ? t('card.base') : TAGS[u.tag].icon + ' ' + TAGS[u.tag].name}</div><div class="icon">${u.icon}</div>` +
       `<div class="name">${u.name}</div><div class="desc">${u.desc}</div>` +
       `<div class="lvl${!owned && full ? ' warn' : ''}">${tag}</div><div class="price">🍯 ${c}</div>`;
     el.addEventListener('click', () => buy(i));
     cardsEl.appendChild(el);
   });
   shopMsgEl.textContent = pending !== null
-    ? `버릴 카드를 고르세요 (${shopCards[pending].name} 장착) · 카드를 다시 누르면 취소`
-    : `장착 카드 ${slots.length} / ${MAX_SLOTS}`;
+    ? t('shop.pick', { name: shopCards[pending].name })
+    : t('shop.slots', { n: slots.length, max: MAX_SLOTS });
   shopMsgEl.classList.toggle('warn', pending !== null);
   renderSlots();
   renderTraits();
-  rerollBtn.textContent = rerollCost() === 0 ? '새로고침 · 무료' : `새로고침 🍯 ${rerollCost()}`;
+  rerollBtn.textContent = rerollCost() === 0 ? t('shop.rerollFree') : t('shop.reroll', { n: rerollCost() });
   rerollBtn.disabled = honey < rerollCost();
-  repairBtn.textContent = `벌집 수리 +30 🍯 ${repairCost()}`;
+  repairBtn.textContent = t('shop.repair', { n: repairCost() });
   repairBtn.disabled = honey < repairCost() || hiveHP >= S.maxHP();
 }
 
@@ -1071,15 +1086,18 @@ $('restart').addEventListener('click', () => { sfx.init(); reset(); });
 
 // ── 메인 메뉴 ──
 const menuEl = $('menu');
-function showMenu() {
+function refreshMenuText() {
   const b = loadBest();
-  $('best').textContent = b.wave ? `최고 기록 · WAVE ${b.wave} · 최대 연쇄 ${b.chain}` : '';
+  $('best').textContent = b.wave ? t('menu.best', { wave: b.wave, chain: b.chain }) : '';
   // 도감: 아직 도달 못 한 웨이브의 말벌은 흐리게
   $('codex-list').innerHTML = KIND_ORDER.map(kind => {
     const k = KINDS[kind], locked = k.from > 1 && b.wave < k.from;
     return `<div class="foe${locked ? ' locked' : ''}"><b>${locked ? '???' : k.name}</b>` +
-      `${locked ? '' : k.desc + '<br>'}<i>WAVE ${k.from}부터</i></div>`;
+      `${locked ? '' : k.desc + '<br>'}<i>${t('codex.from', { n: k.from })}</i></div>`;
   }).join('');
+}
+function showMenu() {
+  refreshMenuText();
   inMenu = true;
   paused = false;
   pauseEl.hidden = true;
@@ -1123,6 +1141,7 @@ const optVol = $('opt-volume') as HTMLInputElement, optVolV = $('opt-volume-v');
 const optBuzz = $('opt-buzz') as HTMLInputElement, optShake = $('opt-shake') as HTMLInputElement;
 const optLite = $('opt-lite') as HTMLInputElement, optDemo = $('opt-demo') as HTMLInputElement;
 function openSettings() {
+  optLang.value = lang;
   optVol.value = String(opts.volume); optVolV.textContent = String(opts.volume);
   optMusic.value = String(opts.music); optMusicV.textContent = String(opts.music);
   optBuzz.checked = opts.buzz; optShake.checked = opts.shake; optLite.checked = opts.lite; optDemo.checked = opts.demo;
@@ -1142,6 +1161,17 @@ optBuzz.addEventListener('change', () => { opts.buzz = optBuzz.checked; applyOpt
 optShake.addEventListener('change', () => { opts.shake = optShake.checked; applyOpts(); });
 optLite.addEventListener('change', () => { opts.lite = optLite.checked; applyOpts(); });
 optDemo.addEventListener('change', () => { opts.demo = optDemo.checked; applyOpts(); if (inMenu) startDemo(); });
+// 언어: 고르면 고정 글자는 바로, 열려 있는 화면(메뉴·도감·상점)은 다시 그린다
+const optLang = $('opt-lang') as HTMLSelectElement;
+optLang.innerHTML = LANGS.map(l => `<option value="${l.id}">${l.label}</option>`).join('');
+optLang.addEventListener('change', () => {
+  opts.lang = optLang.value;
+  setLang(optLang.value as Lang);
+  applyOpts();
+  refreshMenuText();
+  if (!shopEl.hidden) { renderShopHead(); renderShop(); }
+  renderSlots();
+});
 $('open-settings').addEventListener('click', openSettings);
 $('pause-settings').addEventListener('click', openSettings);
 
@@ -1283,7 +1313,7 @@ app.ticker.add((tk) => {
   sfx.setIntensity(musicIntensity());
 
   if (chainShow) {
-    chainEl.textContent = chainShow >= 5 ? `${chainShow} CHAIN!!` : `${chainShow} CHAIN`;
+    chainEl.textContent = t(chainShow >= 5 ? 'chainBig' : 'chain', { n: chainShow });
     chainEl.style.fontSize = `${Math.min(110, 38 + chainShow * 8)}px`;
     chainEl.classList.remove('go');
     void chainEl.offsetWidth;

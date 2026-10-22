@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Beecurity: 열구</title>
+    <title>BEEBALL 47</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐝</text></svg>" />
   </head>
   <body>
@@ -18,11 +18,11 @@
     <div id="chain"></div>
     <div id="banner"></div>
     <div id="slots-hud" class="slots"></div>
-    <div id="hint">말벌을 눌러 벌떼를 던져라 · 47°C에서 익는다</div>
+    <div id="hint" data-i18n="hint"></div>
     <div id="shop" hidden>
       <div class="shop-box">
         <div class="shop-head">
-          <h2 id="shop-title">WAVE 1 방어 성공</h2>
+          <h2 id="shop-title"></h2>
           <div id="shop-sub"></div>
         </div>
         <div id="cards"></div>
@@ -32,66 +32,64 @@
         <div class="shop-row">
           <button id="reroll" class="ghost"></button>
           <button id="repair" class="ghost"></button>
-          <button id="next">다음 웨이브 ▶</button>
+          <button id="next" data-i18n="shop.next"></button>
         </div>
       </div>
     </div>
     <div id="over" hidden>
       <div class="box">
-        <h1>벌집 함락</h1>
+        <h1 data-i18n="over.title"></h1>
         <p id="over-stats"></p>
         <div class="over-row">
-          <button id="restart">다시</button>
-          <button id="to-menu" class="ghost">메뉴</button>
+          <button id="restart" data-i18n="over.retry"></button>
+          <button id="to-menu" class="ghost" data-i18n="over.menu"></button>
         </div>
       </div>
     </div>
     <div id="menu">
       <div class="menu-box">
         <div class="logo">BEEBALL<span>47</span></div>
-        <p class="tag">벌떼로 말벌을 감싸 47°C에 익혀라</p>
-        <button id="start">시작</button>
+        <p class="tag" data-i18n="menu.tag"></p>
+        <button id="start" data-i18n="menu.start"></button>
         <div class="menu-row">
-          <button id="open-codex" class="ghost">도감</button>
-          <button id="open-settings" class="ghost">설정</button>
+          <button id="open-codex" class="ghost" data-i18n="menu.codex"></button>
+          <button id="open-settings" class="ghost" data-i18n="menu.settings"></button>
         </div>
         <p id="best"></p>
       </div>
     </div>
     <div id="codex" class="panel" hidden>
       <div class="panel-box">
-        <h2>말벌 도감</h2>
-        <div class="how">
-          <b>말벌을 눌러</b> 벌떼를 보낸다 · 벌이 공처럼 감싸 47°C가 되면 익는다<br>
-          익을 때 퍼지는 <b>열파</b>가 옆 말벌을 데운다 · 무리 한가운데를 노려 연쇄를 이어라
-        </div>
+        <h2 data-i18n="codex.title"></h2>
+        <div class="how" data-i18n-html="codex.how"></div>
         <div id="codex-list"></div>
-        <div class="panel-row"><button class="close">닫기</button></div>
+        <div class="panel-row"><button class="close" data-i18n="close"></button></div>
       </div>
     </div>
     <div id="settings" class="panel" hidden>
       <div class="panel-box">
-        <h2>설정</h2>
-        <label class="opt">배경음악 볼륨<input id="opt-music" type="range" min="0" max="100" step="5"><span id="opt-music-v"></span></label>
-        <label class="opt">효과음 볼륨<input id="opt-volume" type="range" min="0" max="100" step="5"><span id="opt-volume-v"></span></label>
-        <label class="opt">벌떼 웅웅 소리<input id="opt-buzz" type="checkbox"></label>
-        <label class="opt">화면 흔들림<input id="opt-shake" type="checkbox"></label>
-        <label class="opt">효과 줄이기<small>파티클·꿀 방울을 줄여 느린 기기에서 부드럽게</small><input id="opt-lite" type="checkbox"></label>
-        <label class="opt">메뉴 배경 데모<input id="opt-demo" type="checkbox"></label>
-        <div class="panel-row"><button class="close">닫기</button></div>
+        <h2 data-i18n="settings.title"></h2>
+        <label class="opt"><span data-i18n="settings.lang"></span><select id="opt-lang"></select></label>
+        <label class="opt"><span data-i18n="settings.music"></span><input id="opt-music" type="range" min="0" max="100" step="5"><span id="opt-music-v"></span></label>
+        <label class="opt"><span data-i18n="settings.volume"></span><input id="opt-volume" type="range" min="0" max="100" step="5"><span id="opt-volume-v"></span></label>
+        <label class="opt"><span data-i18n="settings.buzz"></span><input id="opt-buzz" type="checkbox"></label>
+        <label class="opt"><span data-i18n="settings.shake"></span><input id="opt-shake" type="checkbox"></label>
+        <label class="opt"><span data-i18n="settings.lite"></span><small data-i18n="settings.liteHint"></small><input id="opt-lite" type="checkbox"></label>
+        <label class="opt"><span data-i18n="settings.demo"></span><input id="opt-demo" type="checkbox"></label>
+        <div class="panel-row"><button class="close" data-i18n="close"></button></div>
       </div>
     </div>
     <div id="pause" class="panel" hidden>
       <div class="panel-box">
-        <h2>일시정지</h2>
+        <h2 data-i18n="pause.title"></h2>
         <div class="panel-col">
-          <button id="resume">계속</button>
-          <button id="pause-settings" class="ghost">설정</button>
-          <button id="pause-menu" class="ghost">메뉴로 (진행 포기)</button>
+          <button id="resume" data-i18n="pause.resume"></button>
+          <button id="pause-settings" class="ghost" data-i18n="pause.settings"></button>
+          <button id="pause-menu" class="ghost" data-i18n="pause.menu"></button>
         </div>
       </div>
     </div>
-    <button id="gear" title="일시정지 (Esc)">⏸</button>
+    <button id="gear" data-i18n-title="pause.button">⏸</button>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

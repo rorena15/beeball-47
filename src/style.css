@@ -79,7 +79,7 @@ canvas { display: block; }
 .card.poor .price { color: #ff6a4a; }
 .card.poor:hover { transform: none; }
 .card.sold { opacity: 0.25; pointer-events: none; }
-.card.sold .price::after { content: ' · 구매함'; color: #ffe9b0; }
+.card.sold .price::after { content: var(--sold-label, ' · 구매함'); color: #ffe9b0; }
 .card.bought { animation: bought 0.35s ease-out; }
 @keyframes bought { 0% { transform: scale(1.08); box-shadow: 0 0 40px #ffc21a; } 100% { transform: scale(1); } }
 .shop-row { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
@@ -199,3 +199,8 @@ body.in-menu #hud, body.in-menu #hud-r, body.in-menu #slots-hud, body.in-menu #b
   border: 2px solid #6b4310; background: rgba(20, 12, 2, 0.7); color: #ffe9b0; font-size: 16px; cursor: pointer;
 }
 #gear:hover { border-color: #ffc21a; }
+
+.opt select {
+  margin-left: auto; font: inherit; font-size: 15px; padding: 4px 8px; border-radius: 6px;
+  background: #1a0f03; color: #ffe9b0; border: 1px solid #6b4310;
+}

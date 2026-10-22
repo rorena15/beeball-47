@@ -1,0 +1,243 @@
+// 화면 글자 사전. 새 언어는 DICT에 같은 키로 하나 더 넣으면 된다 (빠진 키는 한국어로 대신 나옴).
+// {n} 같은 자리는 t(key, { n: 3 })로 채운다. HTML 글자는 data-i18n(글자) / data-i18n-html(태그 포함)로 표시.
+
+export type Lang = 'ko' | 'en';
+export const LANGS: { id: Lang; label: string }[] = [
+  { id: 'ko', label: '한국어' },
+  { id: 'en', label: 'English' },
+];
+
+const ko = {
+  'title': 'BEEBALL 47',
+  'menu.tag': '벌떼로 말벌을 감싸 47°C에 익혀라',
+  'menu.start': '시작',
+  'menu.codex': '도감',
+  'menu.settings': '설정',
+  'menu.best': '최고 기록 · WAVE {wave} · 최대 연쇄 {chain}',
+  'codex.title': '말벌 도감',
+  'codex.how': '<b>말벌을 눌러</b> 벌떼를 보낸다 · 벌이 공처럼 감싸 47°C가 되면 익는다<br>익을 때 퍼지는 <b>열파</b>가 옆 말벌을 데운다 · 무리 한가운데를 노려 연쇄를 이어라',
+  'codex.from': 'WAVE {n}부터',
+  'close': '닫기',
+  'settings.title': '설정',
+  'settings.lang': '언어',
+  'settings.music': '배경음악 볼륨',
+  'settings.volume': '효과음 볼륨',
+  'settings.buzz': '벌떼 웅웅 소리',
+  'settings.shake': '화면 흔들림',
+  'settings.lite': '효과 줄이기',
+  'settings.liteHint': '파티클·꿀 방울을 줄여 느린 기기에서 부드럽게',
+  'settings.demo': '메뉴 배경 데모',
+  'pause.title': '일시정지',
+  'pause.resume': '계속',
+  'pause.settings': '설정',
+  'pause.menu': '메뉴로 (진행 포기)',
+  'pause.button': '일시정지 (Esc)',
+  'hint': '말벌을 눌러 벌떼를 던져라 · 47°C에서 익는다',
+  'over.title': '벌집 함락',
+  'over.retry': '다시',
+  'over.menu': '메뉴',
+  'over.record': '최고 기록!',
+  'over.stats': 'WAVE {wave} 도달{record}<br>익힌 말벌 {kills}마리 · 최대 연쇄 {chain}<br>모은 꿀 {honey} · 잃은 벌 {lost}마리',
+  'wave.bannerNew': '새 적 · {name}: {desc}',
+  'chain': '{n} CHAIN',
+  'chainBig': '{n} CHAIN!!',
+  'shop.title': 'WAVE {n} 방어 성공',
+  'shop.sub': '꿀 +{honey} · 잃은 벌 {lost}마리',
+  'shop.interest': ' · 이자 +{n}',
+  'shop.next': '다음 웨이브 ▶',
+  'shop.reroll': '새로고침 🍯 {n}',
+  'shop.rerollFree': '새로고침 · 무료',
+  'shop.repair': '벌집 수리 +30 🍯 {n}',
+  'shop.pick': '버릴 카드를 고르세요 ({name} 장착) · 카드를 다시 누르면 취소',
+  'shop.slots': '장착 카드 {n} / {max}',
+  'shop.sold': ' · 구매함',
+  'card.base': '기본',
+  'card.owned': 'Lv {a} → {b}',
+  'card.full': '슬롯 가득 · 교체 필요',
+  'card.new': '새 카드',
+  'rarity.0': '일반',
+  'rarity.1': '희귀',
+  'rarity.2': '전설',
+  'trait.need': '3장: {bonus}',
+
+  'pattern.rush': '돌격',
+  'pattern.surround': '포위',
+  'pattern.swarm': '편대',
+  'foe.normal.name': '말벌',
+  'foe.normal.desc': '벌집으로 곧장 날아온다',
+  'foe.dart.name': '돌격말벌',
+  'foe.dart.desc': '작고 두 배 빠르다. 먼저 끊어라',
+  'foe.giant.name': '장수말벌',
+  'foe.giant.desc': '느리지만 잘 안 익고 독침이 세다. 꿀이 많다',
+  'foe.hunter.name': '사냥말벌',
+  'foe.hunter.desc': '벌집 대신 쉬고 있는 벌을 낚아챈다',
+  'foe.queen.name': '여왕말벌',
+  'foe.queen.desc': '5웨이브마다. 거대하고 아주 오래 버틴다',
+
+  'tag.chain.name': '연쇄', 'tag.chain.bonus': '열파 +2°C',
+  'tag.sac.name': '희생', 'tag.sac.bonus': '과열사한 벌 1마리당 열파 +0.3°C',
+  'tag.elite.name': '정예', 'tag.elite.bonus': '비행 속도 +40%, 독침 사망 −30%',
+  'tag.econ.name': '경제', 'tag.econ.bonus': '웨이브마다 꿀 +30',
+  'tag.fort.name': '요새', 'tag.fort.bonus': '벌집 피해 −50%',
+  'tag.auto.name': '자동', 'tag.auto.bonus': '자동 출격 간격 −40%',
+
+  'up.heat.name': '날갯짓 발열', 'up.heat.desc': '벌 한 마리당 발열 +15%',
+  'up.send.name': '출격 규모', 'up.send.desc': '한 번에 보내는 벌 +20마리',
+  'up.brood.name': '육아벌', 'up.brood.desc': '벌 번식 속도 +35%',
+  'up.cap.name': '벌방 증설', 'up.cap.desc': '최대 벌 수 +140',
+  'up.wing.name': '날개 근육', 'up.wing.desc': '벌 비행 속도 +18%',
+  'up.insul.name': '밀랍 단열', 'up.insul.desc': '공이 식는 속도 −12%',
+  'up.wave.name': '열파 증폭', 'up.wave.desc': '열파 +2°C, 범위 +8%',
+  'up.window.name': '연쇄 페로몬', 'up.window.desc': '연쇄 유지 시간 +0.3초',
+  'up.fuse.name': '도화선', 'up.fuse.desc': '연쇄가 끊겨도 0이 아니라 절반에서 다시 시작',
+  'up.frenzy.name': '연쇄 폭주', 'up.frenzy.desc': '3연쇄부터 열파 1.6배, 범위 +30%, 연쇄 감쇠 없음',
+  'up.martyr.name': '희생 발열', 'up.martyr.desc': '공 안에서 벌이 죽을 때마다 +0.15°C',
+  'up.mhoney.name': '순교자의 꿀', 'up.mhoney.desc': '벌이 죽을 때마다 꿀 +0.05',
+  'up.berserk.name': '광란', 'up.berserk.desc': '독침에 죽는 벌 2배, 대신 발열 +40%',
+  'up.phoenix.name': '불사조', 'up.phoenix.desc': '공 안에서 죽은 벌의 20%가 벌집에서 즉시 부화',
+  'up.elite.name': '정예 소대', 'up.elite.desc': '출격 수 절반, 벌 한 마리 발열 1.7배',
+  'up.veteran.name': '베테랑', 'up.veteran.desc': '열구에서 살아남은 벌은 발열 +20% (3번까지 중첩)',
+  'up.tough.name': '단단한 외골격', 'up.tough.desc': '독침에 죽을 확률 −20%',
+  'up.resist.name': '열 내성', 'up.resist.desc': '열구 성공 시 과열사 −35%',
+  'up.royal.name': '근위대', 'up.royal.desc': '베테랑 벌은 독침에 죽지 않음',
+  'up.honey.name': '꿀 감별', 'up.honey.desc': '꿀 획득 +25%',
+  'up.interest.name': '꿀 저장고', 'up.interest.desc': '웨이브마다 보유 꿀의 10% 이자 (최대 +40)',
+  'up.jelly.name': '로열젤리', 'up.jelly.desc': '보유 꿀 100마다 발열 +4% (최대 +60%)',
+  'up.merchant.name': '밀랍 상인', 'up.merchant.desc': '카드 값 −15%, 상점마다 첫 새로고침 무료',
+  'up.armor.name': '밀랍 성벽', 'up.armor.desc': '벌집 최대 체력 +25 (즉시 채움)',
+  'up.spiky.name': '가시 벌집', 'up.spiky.desc': '벌집에 붙은 말벌은 초당 +4°C',
+  'up.guard.name': '문지기', 'up.guard.desc': '벌집에 붙은 말벌에게 대기 벌이 자동으로 달려듦',
+  'up.scout.name': '정찰벌', 'up.scout.desc': '3초마다 벌집에 가장 가까운 말벌에 자동 출격',
+  'up.mark.name': '페로몬 표식', 'up.mark.desc': '클릭한 말벌이 익을 때까지 벌이 계속 흘러감',
+  'up.alarm.name': '경보 페로몬', 'up.alarm.desc': '자동으로 출격한 벌의 발열 +60%',
+};
+
+export type Key = keyof typeof ko;
+
+const en: Partial<Record<Key, string>> = {
+  'menu.tag': 'Wrap the hornets in bees. Cook them at 47°C.',
+  'menu.start': 'Play',
+  'menu.codex': 'Hornets',
+  'menu.settings': 'Settings',
+  'menu.best': 'Best · WAVE {wave} · Max chain {chain}',
+  'codex.title': 'Hornet Field Guide',
+  'codex.how': '<b>Tap a hornet</b> to send the swarm · bees ball around it and cook it at 47°C<br>Each kill releases a <b>heat wave</b> that warms its neighbors · aim for the middle of a pack to chain',
+  'codex.from': 'From WAVE {n}',
+  'close': 'Close',
+  'settings.title': 'Settings',
+  'settings.lang': 'Language',
+  'settings.music': 'Music volume',
+  'settings.volume': 'Sound effects',
+  'settings.buzz': 'Swarm buzz',
+  'settings.shake': 'Screen shake',
+  'settings.lite': 'Reduce effects',
+  'settings.liteHint': 'Fewer particles and honey drops for slower devices',
+  'settings.demo': 'Menu background demo',
+  'pause.title': 'Paused',
+  'pause.resume': 'Resume',
+  'pause.settings': 'Settings',
+  'pause.menu': 'Quit to menu',
+  'pause.button': 'Pause (Esc)',
+  'hint': 'Tap a hornet to throw the swarm · it cooks at 47°C',
+  'over.title': 'The Hive Has Fallen',
+  'over.retry': 'Retry',
+  'over.menu': 'Menu',
+  'over.record': 'New best!',
+  'over.stats': 'Reached WAVE {wave}{record}<br>Hornets cooked {kills} · Max chain {chain}<br>Honey {honey} · Bees lost {lost}',
+  'wave.bannerNew': 'New threat · {name}: {desc}',
+  'shop.title': 'WAVE {n} defended',
+  'shop.sub': 'Honey +{honey} · Bees lost {lost}',
+  'shop.interest': ' · Interest +{n}',
+  'shop.next': 'Next wave ▶',
+  'shop.reroll': 'Reroll 🍯 {n}',
+  'shop.rerollFree': 'Reroll · Free',
+  'shop.repair': 'Repair hive +30 🍯 {n}',
+  'shop.pick': 'Pick a card to discard (equipping {name}) · tap the card again to cancel',
+  'shop.slots': 'Equipped {n} / {max}',
+  'shop.sold': ' · Bought',
+  'card.base': 'Core',
+  'card.full': 'Slots full · swap needed',
+  'card.new': 'New card',
+  'rarity.0': 'Common',
+  'rarity.1': 'Rare',
+  'rarity.2': 'Legendary',
+  'trait.need': '3 cards: {bonus}',
+
+  'pattern.rush': 'Charge',
+  'pattern.surround': 'Encircle',
+  'pattern.swarm': 'Formation',
+  'foe.normal.name': 'Hornet',
+  'foe.normal.desc': 'Flies straight for the hive',
+  'foe.dart.name': 'Dart Hornet',
+  'foe.dart.desc': 'Small and twice as fast. Cut it off first',
+  'foe.giant.name': 'Giant Hornet',
+  'foe.giant.desc': 'Slow, hard to cook, nasty sting. Lots of honey',
+  'foe.hunter.name': 'Hunter Hornet',
+  'foe.hunter.desc': 'Ignores the hive and snatches resting bees',
+  'foe.queen.name': 'Queen Hornet',
+  'foe.queen.desc': 'Every 5 waves. Huge and very hard to cook',
+
+  'tag.chain.name': 'Chain', 'tag.chain.bonus': 'Heat wave +2°C',
+  'tag.sac.name': 'Sacrifice', 'tag.sac.bonus': 'Heat wave +0.3°C per overheated bee',
+  'tag.elite.name': 'Elite', 'tag.elite.bonus': 'Flight speed +40%, sting deaths −30%',
+  'tag.econ.name': 'Economy', 'tag.econ.bonus': '+30 honey every wave',
+  'tag.fort.name': 'Fortress', 'tag.fort.bonus': 'Hive damage −50%',
+  'tag.auto.name': 'Auto', 'tag.auto.bonus': 'Auto-launch interval −40%',
+
+  'up.heat.name': 'Wing Heat', 'up.heat.desc': 'Heat per bee +15%',
+  'up.send.name': 'Bigger Sorties', 'up.send.desc': '+20 bees per launch',
+  'up.brood.name': 'Nurse Bees', 'up.brood.desc': 'Bee breeding speed +35%',
+  'up.cap.name': 'More Cells', 'up.cap.desc': 'Max bees +140',
+  'up.wing.name': 'Wing Muscles', 'up.wing.desc': 'Bee flight speed +18%',
+  'up.insul.name': 'Wax Insulation', 'up.insul.desc': 'Balls cool 12% slower',
+  'up.wave.name': 'Heat Amplifier', 'up.wave.desc': 'Heat wave +2°C, radius +8%',
+  'up.window.name': 'Chain Pheromone', 'up.window.desc': 'Chain window +0.3s',
+  'up.fuse.name': 'Fuse', 'up.fuse.desc': 'A broken chain restarts from half, not zero',
+  'up.frenzy.name': 'Chain Frenzy', 'up.frenzy.desc': 'From chain 3: heat wave ×1.6, radius +30%, no decay',
+  'up.martyr.name': 'Martyr Heat', 'up.martyr.desc': '+0.15°C each time a bee dies in the ball',
+  'up.mhoney.name': "Martyr's Honey", 'up.mhoney.desc': '+0.05 honey per bee death',
+  'up.berserk.name': 'Berserk', 'up.berserk.desc': 'Twice the sting deaths, but heat +40%',
+  'up.phoenix.name': 'Phoenix', 'up.phoenix.desc': '20% of bees that die in a ball hatch again at the hive',
+  'up.elite.name': 'Elite Squad', 'up.elite.desc': 'Half the launch size, heat per bee ×1.7',
+  'up.veteran.name': 'Veterans', 'up.veteran.desc': 'Bees that survive a ball get +20% heat (stacks 3×)',
+  'up.tough.name': 'Hard Shell', 'up.tough.desc': 'Chance to die from stings −20%',
+  'up.resist.name': 'Heat Tolerance', 'up.resist.desc': 'Overheat deaths on a kill −35%',
+  'up.royal.name': 'Royal Guard', 'up.royal.desc': 'Veteran bees are immune to stings',
+  'up.honey.name': 'Honey Sense', 'up.honey.desc': 'Honey gained +25%',
+  'up.interest.name': 'Honey Vault', 'up.interest.desc': '10% interest on stored honey each wave (max +40)',
+  'up.jelly.name': 'Royal Jelly', 'up.jelly.desc': 'Heat +4% per 100 honey held (max +60%)',
+  'up.merchant.name': 'Wax Merchant', 'up.merchant.desc': 'Cards −15%, first reroll in each shop is free',
+  'up.armor.name': 'Wax Wall', 'up.armor.desc': 'Hive max HP +25 (filled now)',
+  'up.spiky.name': 'Spiked Hive', 'up.spiky.desc': 'Hornets on the hive take +4°C per second',
+  'up.guard.name': 'Gatekeepers', 'up.guard.desc': 'Idle bees rush hornets that reach the hive',
+  'up.scout.name': 'Scouts', 'up.scout.desc': 'Every 3s, auto-launch at the hornet nearest the hive',
+  'up.mark.name': 'Pheromone Mark', 'up.mark.desc': 'Bees keep streaming to a tapped hornet until it cooks',
+  'up.alarm.name': 'Alarm Pheromone', 'up.alarm.desc': 'Auto-launched bees get +60% heat',
+};
+
+const DICT: Record<Lang, Partial<Record<Key, string>>> = { ko, en };
+
+export let lang: Lang = 'ko';
+
+/** 저장된 언어가 없으면 브라우저 언어로 (한국어가 아니면 영어) */
+export function detectLang(saved?: string): Lang {
+  if (saved && saved in DICT) return saved as Lang;
+  return (navigator.language || '').toLowerCase().startsWith('ko') ? 'ko' : 'en';
+}
+
+export function setLang(l: Lang) {
+  lang = l;
+  document.documentElement.lang = l;
+  document.title = t('title');
+  // 고정 글자: data-i18n="키" 는 글자로, data-i18n-html="키" 는 HTML로, data-i18n-title="키" 는 툴팁으로
+  document.querySelectorAll<HTMLElement>('[data-i18n]').forEach(el => (el.textContent = t(el.dataset.i18n as Key)));
+  document.querySelectorAll<HTMLElement>('[data-i18n-html]').forEach(el => (el.innerHTML = t(el.dataset.i18nHtml as Key)));
+  document.querySelectorAll<HTMLElement>('[data-i18n-title]').forEach(el => (el.title = t(el.dataset.i18nTitle as Key)));
+  document.documentElement.style.setProperty('--sold-label', JSON.stringify(t('shop.sold')));
+}
+
+export function t(key: Key, vars?: Record<string, string | number>): string {
+  let s = DICT[lang][key] ?? ko[key] ?? key;
+  if (vars) for (const k in vars) s = s.split(`{${k}}`).join(String(vars[k]));
+  return s;
+}
